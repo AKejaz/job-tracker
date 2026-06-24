@@ -26,7 +26,6 @@ If the email is not related to a job application at all, set is_job_related to f
 Be conservative: only extract a company_name/job_title if reasonably confident.`;
 
 export async function POST(req: NextRequest) {
-  // Shared-secret check so random people can't write to your table.
   const secret = req.headers.get("x-webhook-secret");
   if (secret !== process.env.EMAIL_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -48,7 +47,6 @@ export async function POST(req: NextRequest) {
 
   const admin = createAdminClient();
 
-  // Resolve which app user this email belongs to.
   const { data: profile } = await admin
     .from("profiles")
     .select("id")
@@ -59,7 +57,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "unknown user" }, { status: 404 });
   }
 
-  // Avoid double-processing the same email if Zapier retries.
   const { data: existing } = await admin
     .from("email_events")
     .select("id")
@@ -84,7 +81,8 @@ export async function POST(req: NextRequest) {
           user_id: profile.id,
           company_name: extracted.company_name,
           job_title: extracted.job_title ?? "Unknown role",
-          source: extracted.source ?? "other",
+          source: "gmail",
+          medium: extracted.source ?? "other",
           status: "applied",
           applied_at: received_at,
           needs_review: !extracted.job_title,
@@ -93,8 +91,6 @@ export async function POST(req: NextRequest) {
         .single();
       applicationId = inserted?.id ?? null;
     } else {
-      // Interview / offer / rejection: try to match an existing application by company name
-      // and log a status change instead of creating a duplicate row.
       const { data: match } = await admin
         .from("applications")
         .select("id, status")

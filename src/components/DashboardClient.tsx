@@ -10,6 +10,7 @@ type Application = {
   job_title: string;
   pay: string | null;
   source: string | null;
+  medium: string | null;
   status: string;
   applied_at: string;
   needs_review: boolean;
@@ -31,7 +32,7 @@ export default function DashboardClient() {
     async function load() {
       const { data } = await supabase
         .from("applications")
-        .select("id, company_name, job_title, pay, source, status, applied_at, needs_review")
+        .select("id, company_name, job_title, pay, source, medium, status, applied_at, needs_review")
         .order("applied_at", { ascending: false });
       setApps(data ?? []);
       setLoading(false);
@@ -67,7 +68,7 @@ export default function DashboardClient() {
   const bySource = useMemo(() => {
     const counts: Record<string, number> = { linkedin: 0, indeed: 0, email: 0, company_site: 0, other: 0 };
     for (const a of filtered) {
-      const key = (a.source ?? "other").toLowerCase().replace(/\s+/g, "_");
+      const key = (a.medium ?? "other").toLowerCase().replace(/\s+/g, "_");
       counts[key in counts ? key : "other"] += 1;
     }
     return counts;
@@ -185,7 +186,7 @@ function ApplicationsTable({ apps }: { apps: Application[] }) {
               <td className="px-4 py-2 text-neutral-400">
                 {new Date(a.applied_at).toLocaleDateString()}
               </td>
-              <td className="px-4 py-2 capitalize text-neutral-400">{a.source ?? "—"}</td>
+              <td className="px-4 py-2 capitalize text-neutral-400">{a.medium ?? "—"}</td>
               <td className="px-4 py-2">
                 <span
                   className={`rounded px-2 py-0.5 text-xs capitalize ${
@@ -210,28 +211,39 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
     job_title: "",
     company_name: "",
     pay: "",
-    source: "linkedin",
+    medium: "linkedin",
     applied_at: new Date().toISOString().slice(0, 10),
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    setError(null);
     const { data: userData } = await supabase.auth.getUser();
-    await supabase.from("applications").insert({
+    const { error: insertError } = await supabase.from("applications").insert({
       ...form,
       user_id: userData.user?.id,
+      source: "manual",
       status: "applied",
       needs_review: false,
     });
     setSaving(false);
+    if (insertError) {
+      setError(insertError.message);
+      return;
+    }
     onAdded();
   }
 
   return (
     <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 sm:grid-cols-5">
-      <input required placeholder="Position" value={form.job_title}
+      {error && (
+        <p className="col-span-2 rounded bg-red-950 px-2 py-1.5 text-xs text-red-300 sm:col-span-5">
+          {error}
+        </p>
+      )}      <input required placeholder="Position" value={form.job_title}
         onChange={(e) => setForm({ ...form, job_title: e.target.value })}
         className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
       <input required placeholder="Company" value={form.company_name}
@@ -240,7 +252,7 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
       <input placeholder="Pay (optional)" value={form.pay}
         onChange={(e) => setForm({ ...form, pay: e.target.value })}
         className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
-      <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}
+      <select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}
         className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm">
         <option value="linkedin">LinkedIn</option>
         <option value="indeed">Indeed</option>

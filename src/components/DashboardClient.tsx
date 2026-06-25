@@ -25,6 +25,21 @@ export default function DashboardClient() {
   const [range, setRange] = useState<Range>(30);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    async function checkGmail() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      const { data } = await supabase
+        .from("profiles")
+        .select("gmail_connected")
+        .eq("id", userData.user.id)
+        .maybeSingle();
+      setGmailConnected(data?.gmail_connected ?? false);
+    }
+    checkGmail();
+  }, [supabase]);
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
@@ -40,6 +55,7 @@ export default function DashboardClient() {
 
     load();
 
+    // Realtime: any insert/update/delete on applications refreshes the list instantly.
     channel = supabase
       .channel("applications-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "applications" }, () => {
@@ -89,8 +105,22 @@ export default function DashboardClient() {
           </div>
         </div>
 
+        {gmailConnected === false && (
+          <a
+            href="/api/auth/google/start"
+            className="mt-4 block rounded-md border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-neutral-200 hover:border-neutral-500"
+          >
+            Connect Gmail to auto-log applications and offers →
+          </a>
+        )}
+        {gmailConnected === true && (
+          <p className="mt-4 text-xs text-neutral-500">Gmail connected — syncing automatically.</p>
+        )}
+
         {showAddForm && (
-          <AddApplicationForm onAdded={() => setShowAddForm(false)} />
+          <AddApplicationForm
+            onAdded={() => setShowAddForm(false)}
+          />
         )}
 
         <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
@@ -240,8 +270,7 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
         <p className="col-span-2 rounded bg-red-950 px-2 py-1.5 text-xs text-red-300 sm:col-span-5">
           {error}
         </p>
-      )}
-      <input required placeholder="Position" value={form.job_title}
+      )}      <input required placeholder="Position" value={form.job_title}
         onChange={(e) => setForm({ ...form, job_title: e.target.value })}
         className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
       <input required placeholder="Company" value={form.company_name}

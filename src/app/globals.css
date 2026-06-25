@@ -1,26 +1,29 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  --ink: #0c0e12;
+  --surface: #14171c;
+  --surface-raised: #1b1f26;
+  --line: #262b33;
+  --gold: #e8a33d;
+  --gold-dim: #e8a33d33;
+  --teal: #4fb286;
+  --coral: #d2685a;
+  --text-high: #edeff2;
+  --text-low: #8a8f99;
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --font-display: "Space Grotesk", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-data: "JetBrains Mono", monospace;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--ink);
+  color: var(--text-high);
+  font-family: var(--font-body);
 }
+
+.font-display { font-family: var(--font-display); }
+.font-data { font-family: var(--font-data); }
+

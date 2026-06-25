@@ -23,9 +23,9 @@ export default function RoleMatchWidget() {
   }
 
   return (
-    <div className="mt-8 rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-      <h2 className="text-sm font-medium text-neutral-300">CV → role matches (Islamabad, 2026 market)</h2>
-      <p className="mt-1 text-xs text-neutral-500">
+    <div className="mt-8 rounded-lg border p-4" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+      <h2 className="font-display text-sm font-semibold">CV → role matches (Islamabad, 2026 market)</h2>
+      <p className="mt-1 text-xs" style={{ color: "var(--text-low)" }}>
         Paste your CV text below. (PDF upload + auto-extraction can be wired in once this is validated.)
       </p>
       <form onSubmit={handleSubmit} className="mt-3 space-y-2">
@@ -35,12 +35,14 @@ export default function RoleMatchWidget() {
           onChange={(e) => setText(e.target.value)}
           rows={6}
           placeholder="Paste resume text here…"
-          className="w-full rounded border border-neutral-700 bg-neutral-950 px-3 py-2 text-sm"
+          className="w-full rounded border px-3 py-2 text-sm"
+          style={{ borderColor: "var(--line)", background: "var(--ink)", color: "var(--text-high)" }}
         />
         <button
           type="submit"
           disabled={loading}
-          className="rounded bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900 disabled:opacity-50"
+          className="font-display rounded px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+          style={{ background: "var(--gold)", color: "var(--ink)" }}
         >
           {loading ? "Analyzing…" : "Find matching roles"}
         </button>
@@ -49,9 +51,9 @@ export default function RoleMatchWidget() {
       {matches && (
         <ul className="mt-4 space-y-2">
           {matches.map((m, i) => (
-            <li key={i} className="rounded border border-neutral-800 p-3">
+            <li key={i} className="rounded border p-3" style={{ borderColor: "var(--line)" }}>
               <p className="text-sm font-medium">{m.title}</p>
-              <p className="mt-0.5 text-xs text-neutral-400">{m.reasoning}</p>
+              <p className="mt-0.5 text-xs" style={{ color: "var(--text-low)" }}>{m.reasoning}</p>
             </li>
           ))}
         </ul>

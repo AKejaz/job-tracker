@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import RoleMatchWidget from "@/components/RoleMatchWidget";
+import GrindHeatmap from "@/components/GrindHeatmap";
+import { TrendChart, MediumBreakdownChart, ConversionFunnel } from "@/components/Charts";
 
 type Application = {
   id: string;
@@ -55,7 +57,6 @@ export default function DashboardClient() {
 
     load();
 
-    // Realtime: any insert/update/delete on applications refreshes the list instantly.
     channel = supabase
       .channel("applications-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "applications" }, () => {
@@ -80,25 +81,27 @@ export default function DashboardClient() {
   );
 
   const total = filtered.length;
-  const bySource = useMemo(() => {
-    const counts: Record<string, number> = { linkedin: 0, indeed: 0, email: 0, company_site: 0, other: 0 };
-    for (const a of filtered) {
-      const key = (a.medium ?? "other").toLowerCase().replace(/\s+/g, "_");
-      counts[key in counts ? key : "other"] += 1;
-    }
-    return counts;
-  }, [filtered]);
+  const interviewed = filtered.filter((a) => a.status === "interview" || a.status === "offer").length;
+  const offers = filtered.filter((a) => a.status === "offer").length;
+  const responseRate = total > 0 ? Math.round((interviewed / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-neutral-950 px-6 py-8 text-neutral-100">
+    <div className="min-h-screen px-6 py-8" style={{ background: "var(--ink)", color: "var(--text-high)" }}>
       <div className="mx-auto max-w-6xl">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-semibold">Job Application Tracker</h1>
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-2xl font-semibold tracking-tight">Job Application Tracker</h1>
+            <p className="font-data text-xs" style={{ color: "var(--text-low)" }}>
+              {gmailConnected === true ? "● Gmail syncing automatically" : gmailConnected === false ? "○ Gmail not connected" : ""}
+            </p>
+          </div>
           <div className="flex items-center gap-2">
             <RangeToggle range={range} onChange={setRange} />
             <button
               onClick={() => setShowAddForm((v) => !v)}
-              className="rounded-md bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900"
+              className="font-display rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
+              style={{ background: "var(--gold)", color: "var(--ink)" }}
             >
               {showAddForm ? "Close" : "+ Add manually"}
             </button>
@@ -108,35 +111,47 @@ export default function DashboardClient() {
         {gmailConnected === false && (
           <a
             href="/api/auth/google/start"
-            className="mt-4 block rounded-md border border-neutral-700 bg-neutral-900 px-4 py-3 text-sm text-neutral-200 hover:border-neutral-500"
+            className="mt-4 block rounded-md border px-4 py-3 text-sm transition-colors hover:border-[var(--gold)]"
+            style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text-high)" }}
           >
             Connect Gmail to auto-log applications and offers →
           </a>
         )}
-        {gmailConnected === true && (
-          <p className="mt-4 text-xs text-neutral-500">Gmail connected — syncing automatically.</p>
-        )}
 
-        {showAddForm && (
-          <AddApplicationForm
-            onAdded={() => setShowAddForm(false)}
-          />
-        )}
+        {showAddForm && <AddApplicationForm onAdded={() => setShowAddForm(false)} />}
 
-        <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-5">
+        {/* KPI row */}
+        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <KpiCard label="Total applied" value={total} />
-          <KpiCard label="LinkedIn" value={bySource.linkedin} />
-          <KpiCard label="Indeed" value={bySource.indeed} />
-          <KpiCard label="Email" value={bySource.email} />
-          <KpiCard label="Company site" value={bySource.company_site} />
+          <KpiCard label="Interviews" value={interviewed} accent="var(--gold)" />
+          <KpiCard label="Offers" value={offers} accent="var(--teal)" />
+          <KpiCard label="Response rate" value={`${responseRate}%`} accent="var(--gold)" />
         </div>
 
+        {/* Signature heatmap */}
+        <div className="mt-6">
+          <GrindHeatmap dates={apps.map((a) => a.applied_at)} />
+        </div>
+
+        {/* Charts row */}
+        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <TrendChart apps={filtered} days={range} />
+          </div>
+          <ConversionFunnel apps={filtered} />
+        </div>
+
+        <div className="mt-4">
+          <MediumBreakdownChart apps={filtered} />
+        </div>
+
+        {/* Table */}
         <div className="mt-8">
-          <h2 className="mb-3 text-sm font-medium text-neutral-400">
-            Applications ({filtered.length})
+          <h2 className="font-display mb-3 text-sm font-semibold" style={{ color: "var(--text-low)" }}>
+            APPLICATIONS ({filtered.length})
           </h2>
           {loading ? (
-            <p className="text-sm text-neutral-500">Loading…</p>
+            <p className="text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
           ) : (
             <ApplicationsTable apps={filtered} />
           )}
@@ -148,25 +163,30 @@ export default function DashboardClient() {
   );
 }
 
-function KpiCard({ label, value }: { label: string; value: number }) {
+function KpiCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
   return (
-    <div className="rounded-lg border border-neutral-800 bg-neutral-900 p-4">
-      <p className="text-xs text-neutral-400">{label}</p>
-      <p className="mt-1 text-2xl font-semibold">{value}</p>
+    <div className="rounded-lg border p-4" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+      <p className="font-data text-xs" style={{ color: "var(--text-low)" }}>{label}</p>
+      <p className="font-display mt-1 text-2xl font-semibold" style={{ color: accent ?? "var(--text-high)" }}>
+        {value}
+      </p>
     </div>
   );
 }
 
 function RangeToggle({ range, onChange }: { range: Range; onChange: (r: Range) => void }) {
   return (
-    <div className="flex rounded-md border border-neutral-700 p-0.5">
+    <div className="flex rounded-md border p-0.5" style={{ borderColor: "var(--line)" }}>
       {RANGES.map((r) => (
         <button
           key={r}
           onClick={() => onChange(r)}
-          className={`rounded px-2.5 py-1 text-xs font-medium ${
-            range === r ? "bg-neutral-100 text-neutral-900" : "text-neutral-300"
-          }`}
+          className="font-data rounded px-2.5 py-1 text-xs font-medium transition-colors"
+          style={
+            range === r
+              ? { background: "var(--gold)", color: "var(--ink)" }
+              : { color: "var(--text-low)" }
+          }
         >
           {r}d
         </button>
@@ -175,26 +195,32 @@ function RangeToggle({ range, onChange }: { range: Range; onChange: (r: Range) =
   );
 }
 
-const STATUS_STYLES: Record<string, string> = {
-  applied: "bg-neutral-800 text-neutral-300",
-  interview: "bg-blue-900 text-blue-300",
-  offer: "bg-green-900 text-green-300",
-  rejected: "bg-red-900 text-red-300",
+const STATUS_STYLES: Record<string, { bg: string; fg: string }> = {
+  applied: { bg: "var(--surface-raised)", fg: "var(--text-low)" },
+  interview: { bg: "#3a2f12", fg: "var(--gold)" },
+  offer: { bg: "#173127", fg: "var(--teal)" },
+  rejected: { bg: "#3a1f1a", fg: "var(--coral)" },
 };
 
 function ApplicationsTable({ apps }: { apps: Application[] }) {
   if (apps.length === 0) {
     return (
-      <p className="rounded-md border border-neutral-800 p-6 text-center text-sm text-neutral-500">
-        No applications in this range yet. They'll show up here automatically once email syncing is on.
+      <p
+        className="rounded-md border p-6 text-center text-sm"
+        style={{ borderColor: "var(--line)", color: "var(--text-low)" }}
+      >
+        No applications in this range yet. They&apos;ll show up here automatically once email syncing is on.
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-neutral-800">
+    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--line)" }}>
       <table className="w-full text-left text-sm">
-        <thead className="bg-neutral-900 text-xs uppercase text-neutral-400">
+        <thead
+          className="font-data text-xs uppercase"
+          style={{ background: "var(--surface)", color: "var(--text-low)" }}
+        >
           <tr>
             <th className="px-4 py-2">Position</th>
             <th className="px-4 py-2">Company</th>
@@ -205,27 +231,29 @@ function ApplicationsTable({ apps }: { apps: Application[] }) {
           </tr>
         </thead>
         <tbody>
-          {apps.map((a) => (
-            <tr key={a.id} className="border-t border-neutral-800">
-              <td className="px-4 py-2">{a.job_title}</td>
-              <td className="px-4 py-2">{a.company_name}</td>
-              <td className="px-4 py-2 text-neutral-400">{a.pay ?? "—"}</td>
-              <td className="px-4 py-2 text-neutral-400">
-                {new Date(a.applied_at).toLocaleDateString()}
-              </td>
-              <td className="px-4 py-2 capitalize text-neutral-400">{a.medium ?? "—"}</td>
-              <td className="px-4 py-2">
-                <span
-                  className={`rounded px-2 py-0.5 text-xs capitalize ${
-                    STATUS_STYLES[a.status] ?? "bg-neutral-800 text-neutral-300"
-                  }`}
-                >
-                  {a.status}
-                  {a.needs_review ? " · review" : ""}
-                </span>
-              </td>
-            </tr>
-          ))}
+          {apps.map((a) => {
+            const style = STATUS_STYLES[a.status] ?? STATUS_STYLES.applied;
+            return (
+              <tr key={a.id} className="border-t" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+                <td className="px-4 py-2 font-medium">{a.job_title}</td>
+                <td className="px-4 py-2">{a.company_name}</td>
+                <td className="font-data px-4 py-2" style={{ color: "var(--text-low)" }}>{a.pay ?? "—"}</td>
+                <td className="font-data px-4 py-2" style={{ color: "var(--text-low)" }}>
+                  {new Date(a.applied_at).toLocaleDateString()}
+                </td>
+                <td className="px-4 py-2 capitalize" style={{ color: "var(--text-low)" }}>{a.medium ?? "—"}</td>
+                <td className="px-4 py-2">
+                  <span
+                    className="font-data rounded px-2 py-0.5 text-xs capitalize"
+                    style={{ background: style.bg, color: style.fg }}
+                  >
+                    {a.status}
+                    {a.needs_review ? " · review" : ""}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -264,23 +292,34 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
     onAdded();
   }
 
+  const inputStyle = {
+    borderColor: "var(--line)",
+    background: "var(--ink)",
+    color: "var(--text-high)",
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-3 rounded-lg border border-neutral-800 bg-neutral-900 p-4 sm:grid-cols-5">
+    <form
+      onSubmit={handleSubmit}
+      className="mt-4 grid grid-cols-2 gap-3 rounded-lg border p-4 sm:grid-cols-5"
+      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+    >
       {error && (
-        <p className="col-span-2 rounded bg-red-950 px-2 py-1.5 text-xs text-red-300 sm:col-span-5">
+        <p className="col-span-2 rounded px-2 py-1.5 text-xs sm:col-span-5" style={{ background: "#3a1f1a", color: "var(--coral)" }}>
           {error}
         </p>
-      )}      <input required placeholder="Position" value={form.job_title}
+      )}
+      <input required placeholder="Position" value={form.job_title}
         onChange={(e) => setForm({ ...form, job_title: e.target.value })}
-        className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
+        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
       <input required placeholder="Company" value={form.company_name}
         onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-        className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
+        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
       <input placeholder="Pay (optional)" value={form.pay}
         onChange={(e) => setForm({ ...form, pay: e.target.value })}
-        className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
+        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
       <select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}
-        className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm">
+        className="rounded border px-2 py-1.5 text-sm" style={inputStyle}>
         <option value="linkedin">LinkedIn</option>
         <option value="indeed">Indeed</option>
         <option value="email">Email</option>
@@ -289,9 +328,10 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
       </select>
       <input type="date" value={form.applied_at}
         onChange={(e) => setForm({ ...form, applied_at: e.target.value })}
-        className="rounded border border-neutral-700 bg-neutral-950 px-2 py-1.5 text-sm" />
+        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
       <button type="submit" disabled={saving}
-        className="col-span-2 rounded bg-neutral-100 px-3 py-1.5 text-sm font-medium text-neutral-900 sm:col-span-1">
+        className="font-display col-span-2 rounded px-3 py-1.5 text-sm font-medium sm:col-span-1"
+        style={{ background: "var(--gold)", color: "var(--ink)" }}>
         {saving ? "Saving…" : "Save"}
       </button>
     </form>

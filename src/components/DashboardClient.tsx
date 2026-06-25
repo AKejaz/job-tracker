@@ -1,13 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Briefcase, MessageSquare, Users, Award, XCircle, Search, Bell } from "lucide-react";
+import { Briefcase, MessageSquare, Users, Award, XCircle, Search, Bell, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import RoleMatchWidget from "@/components/RoleMatchWidget";
-import Sidebar from "@/components/Sidebar";
+import Sidebar, { View } from "@/components/Sidebar";
 import PipelineFunnel from "@/components/PipelineFunnel";
 import RecentActivity from "@/components/RecentActivity";
 import { TrendChart, MediumBreakdownChart } from "@/components/Charts";
+import AnalyticsView from "@/components/AnalyticsView";
+import TrendsView from "@/components/TrendsView";
+import EditApplicationModal from "@/components/EditApplicationModal";
 
 type Application = {
   id: string;
@@ -39,6 +42,8 @@ export default function DashboardClient() {
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<View>("dashboard");
+  const [editing, setEditing] = useState<Application | null>(null);
 
   useEffect(() => {
     async function checkUser() {
@@ -106,100 +111,106 @@ export default function DashboardClient() {
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
-      <Sidebar userEmail={userEmail} />
+      <Sidebar userEmail={userEmail} view={view} onChange={setView} />
 
       <main className="flex-1 px-6 py-6 lg:px-8">
-        {/* Top bar */}
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>
-              Application Dashboard
-            </h1>
-            <p className="text-xs" style={{ color: "var(--text-faint)" }}>
-              {gmailConnected === true ? "Gmail syncing automatically" : "Gmail not connected"}
-            </p>
-          </div>
-          <div className="flex items-center gap-2.5">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5" style={{ color: "var(--text-faint)" }} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search applications…"
-                className="w-48 rounded-md border py-1.5 pl-8 pr-3 text-sm outline-none"
-                style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text-high)" }}
-              />
+        {view !== "dashboard" ? (
+          <>
+            <div className="flex justify-end">
+              <RangeToggle range={range} onChange={setRange} />
             </div>
-            <RangeToggle range={range} onChange={setRange} />
-            <button
-              className="flex h-8 w-8 items-center justify-center rounded-md border"
-              style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-            >
-              <Bell className="h-4 w-4" style={{ color: "var(--text-low)" }} />
-            </button>
-            <button
-              onClick={() => setShowAddForm((v) => !v)}
-              className="font-display rounded-md px-3.5 py-2 text-sm font-semibold text-white"
-              style={{ background: "var(--blue)" }}
-            >
-              {showAddForm ? "Close" : "+ Add Application"}
-            </button>
-          </div>
-        </div>
+            <div className="mt-4">
+              {view === "analytics" && <AnalyticsView apps={apps} />}
+              {view === "trends" && <TrendsView apps={apps} />}
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Top bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>
+                  Application Dashboard
+                </h1>
+                <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+                  {gmailConnected === true ? "Gmail syncing automatically" : "Gmail not connected"}
+                </p>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5" style={{ color: "var(--text-faint)" }} />
+                  <input
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder="Search applications…"
+                    className="w-48 rounded-md border py-1.5 pl-8 pr-3 text-sm outline-none"
+                    style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text-high)" }}
+                  />
+                </div>
+                <RangeToggle range={range} onChange={setRange} />
+                <button className="flex h-8 w-8 items-center justify-center rounded-md border" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+                  <Bell className="h-4 w-4" style={{ color: "var(--text-low)" }} />
+                </button>
+                <button
+                  onClick={() => setShowAddForm((v) => !v)}
+                  className="font-display rounded-md px-3.5 py-2 text-sm font-semibold text-white"
+                  style={{ background: "var(--blue)" }}
+                >
+                  {showAddForm ? "Close" : "+ Add Application"}
+                </button>
+              </div>
+            </div>
 
-        {gmailConnected === false && (
-          <a
-            href="/api/auth/google/start"
-            className="mt-4 block rounded-lg border px-4 py-3 text-sm"
-            style={{ borderColor: "var(--line)", background: "var(--blue-bg)", color: "var(--blue)" }}
-          >
-            Connect Gmail to auto-log applications and offers →
-          </a>
+            {gmailConnected === false && (
+              <a href="/api/auth/google/start" className="mt-4 block rounded-lg border px-4 py-3 text-sm"
+                style={{ borderColor: "var(--line)", background: "var(--blue-bg)", color: "var(--blue)" }}>
+                Connect Gmail to auto-log applications and offers →
+              </a>
+            )}
+
+            {showAddForm && <AddApplicationForm onAdded={() => setShowAddForm(false)} />}
+
+            <div className="mt-6 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
+              <KpiCard icon={Briefcase} label="Jobs Applied" value={total} color="var(--blue)" bg="var(--blue-bg)" />
+              <KpiCard icon={MessageSquare} label="Response Rate" value={`${responseRate}%`} color="var(--purple)" bg="var(--purple-bg)" />
+              <KpiCard icon={Users} label="Interview Stage" value={interviewed} color="var(--amber)" bg="var(--amber-bg)" />
+              <KpiCard icon={Award} label="Offers Received" value={offers} color="var(--green)" bg="var(--green-bg)" />
+              <KpiCard icon={XCircle} label="Rejections" value={rejections} color="var(--red)" bg="var(--red-bg)" />
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <PipelineFunnel apps={filtered} />
+              </div>
+              <RecentActivity apps={apps} />
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <div className="lg:col-span-2">
+                <TrendChart apps={filtered} days={range} />
+              </div>
+              <MediumBreakdownChart apps={filtered} />
+            </div>
+
+            <div className="mt-6 rounded-xl border" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+              <div className="flex items-center justify-between px-5 py-4">
+                <h2 className="font-display text-sm font-semibold" style={{ color: "var(--text-high)" }}>
+                  All Applications <span style={{ color: "var(--text-faint)" }}>— {searched.length} results</span>
+                </h2>
+              </div>
+              {loading ? (
+                <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
+              ) : (
+                <ApplicationsTable apps={searched} onEdit={setEditing} />
+              )}
+            </div>
+
+            <RoleMatchWidget />
+          </>
         )}
-
-        {showAddForm && <AddApplicationForm onAdded={() => setShowAddForm(false)} />}
-
-        {/* KPI row */}
-        <div className="mt-6 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
-          <KpiCard icon={Briefcase} label="Jobs Applied" value={total} color="var(--blue)" bg="var(--blue-bg)" />
-          <KpiCard icon={MessageSquare} label="Response Rate" value={`${responseRate}%`} color="var(--purple)" bg="var(--purple-bg)" />
-          <KpiCard icon={Users} label="Interview Stage" value={interviewed} color="var(--amber)" bg="var(--amber-bg)" />
-          <KpiCard icon={Award} label="Offers Received" value={offers} color="var(--green)" bg="var(--green-bg)" />
-          <KpiCard icon={XCircle} label="Rejections" value={rejections} color="var(--red)" bg="var(--red-bg)" />
-        </div>
-
-        {/* Pipeline + Recent activity */}
-        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <PipelineFunnel apps={filtered} />
-          </div>
-          <RecentActivity apps={apps} />
-        </div>
-
-        {/* Charts */}
-        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="lg:col-span-2">
-            <TrendChart apps={filtered} days={range} />
-          </div>
-          <MediumBreakdownChart apps={filtered} />
-        </div>
-
-        {/* Table */}
-        <div className="mt-6 rounded-xl border" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-          <div className="flex items-center justify-between px-5 py-4">
-            <h2 className="font-display text-sm font-semibold" style={{ color: "var(--text-high)" }}>
-              All Applications <span style={{ color: "var(--text-faint)" }}>— {searched.length} results</span>
-            </h2>
-          </div>
-          {loading ? (
-            <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
-          ) : (
-            <ApplicationsTable apps={searched} />
-          )}
-        </div>
-
-        <RoleMatchWidget />
       </main>
+
+      {editing && <EditApplicationModal app={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
@@ -222,12 +233,9 @@ function RangeToggle({ range, onChange }: { range: Range; onChange: (r: Range) =
   return (
     <div className="flex rounded-md border p-0.5" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
       {RANGES.map((r) => (
-        <button
-          key={r}
-          onClick={() => onChange(r)}
+        <button key={r} onClick={() => onChange(r)}
           className="rounded px-2.5 py-1 text-xs font-semibold transition-colors"
-          style={range === r ? { background: "var(--blue)", color: "white" } : { color: "var(--text-low)" }}
-        >
+          style={range === r ? { background: "var(--blue)", color: "white" } : { color: "var(--text-low)" }}>
           {r}d
         </button>
       ))}
@@ -242,7 +250,7 @@ const STATUS_STYLES: Record<string, { bg: string; fg: string }> = {
   rejected: { bg: "var(--red-bg)", fg: "var(--red)" },
 };
 
-function ApplicationsTable({ apps }: { apps: Application[] }) {
+function ApplicationsTable({ apps, onEdit }: { apps: Application[]; onEdit: (a: Application) => void }) {
   if (apps.length === 0) {
     return (
       <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-faint)" }}>
@@ -262,19 +270,18 @@ function ApplicationsTable({ apps }: { apps: Application[] }) {
             <th className="px-5 py-2.5 font-medium">Channel</th>
             <th className="px-5 py-2.5 font-medium">Status</th>
             <th className="px-5 py-2.5 font-medium">Pay</th>
+            <th className="px-5 py-2.5 font-medium"></th>
           </tr>
         </thead>
         <tbody>
           {apps.map((a) => {
             const style = STATUS_STYLES[a.status] ?? STATUS_STYLES.applied;
             return (
-              <tr key={a.id} className="border-t" style={{ borderColor: "var(--line)" }}>
+              <tr key={a.id} className="group border-t" style={{ borderColor: "var(--line)" }}>
                 <td className="px-5 py-3">
                   <div className="flex items-center gap-2.5">
-                    <div
-                      className="font-display flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
-                      style={{ background: avatarColor(a.company_name) }}
-                    >
+                    <div className="font-display flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
+                      style={{ background: avatarColor(a.company_name) }}>
                       {a.company_name.slice(0, 1).toUpperCase()}
                     </div>
                     <span className="font-medium" style={{ color: "var(--text-high)" }}>{a.company_name}</span>
@@ -286,14 +293,16 @@ function ApplicationsTable({ apps }: { apps: Application[] }) {
                 </td>
                 <td className="px-5 py-3 capitalize" style={{ color: "var(--text-low)" }}>{a.medium ?? "—"}</td>
                 <td className="px-5 py-3">
-                  <span
-                    className="rounded-full px-2.5 py-1 text-xs font-semibold capitalize"
-                    style={{ background: style.bg, color: style.fg }}
-                  >
+                  <span className="rounded-full px-2.5 py-1 text-xs font-semibold capitalize" style={{ background: style.bg, color: style.fg }}>
                     {a.status}{a.needs_review ? " · review" : ""}
                   </span>
                 </td>
                 <td className="px-5 py-3" style={{ color: "var(--text-low)" }}>{a.pay ?? "—"}</td>
+                <td className="px-5 py-3 text-right">
+                  <button onClick={() => onEdit(a)} className="opacity-0 transition-opacity group-hover:opacity-100" title="Edit">
+                    <Pencil className="h-3.5 w-3.5" style={{ color: "var(--text-faint)" }} />
+                  </button>
+                </td>
               </tr>
             );
           })}

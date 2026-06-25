@@ -55,9 +55,51 @@ export async function listRecentMessages(accessToken: string, afterUnixSeconds: 
   return (data.messages ?? []).map((m: { id: string }) => m.id);
 }
 
+function decodeBase64Url(data: string): string {
+  const normalized = data.replace(/-/g, "+").replace(/_/g, "/");
+  return Buffer.from(normalized, "base64").toString("utf-8");
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+type GmailPart = {
+  mimeType?: string;
+  body?: { data?: string };
+  parts?: GmailPart[];
+};
+
+function extractBodyText(payload: GmailPart): string {
+  // Prefer plain text; fall back to stripped HTML. Walk nested multipart structures.
+  let plain = "";
+  let html = "";
+
+  function walk(part: GmailPart) {
+    if (part.mimeType === "text/plain" && part.body?.data) {
+      plain += decodeBase64Url(part.body.data);
+    } else if (part.mimeType === "text/html" && part.body?.data) {
+      html += decodeBase64Url(part.body.data);
+    }
+    if (part.parts) part.parts.forEach(walk);
+  }
+  walk(payload);
+
+  const text = plain.trim() || stripHtml(html);
+  // Cap length to keep Groq prompts cheap and fast; the useful info is always near the top.
+  return text.slice(0, 3000);
+}
+
 export async function getMessageMeta(accessToken: string, id: string): Promise<GmailMessageMeta> {
   const res = await fetch(
-    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=metadata&metadataHeaders=Subject&metadataHeaders=From`,
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages/${id}?format=full`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   );
   if (!res.ok) throw new Error(`Gmail get failed: ${await res.text()}`);
@@ -65,11 +107,13 @@ export async function getMessageMeta(accessToken: string, id: string): Promise<G
   const headers: { name: string; value: string }[] = data.payload?.headers ?? [];
   const subject = headers.find((h) => h.name === "Subject")?.value ?? "";
   const sender = headers.find((h) => h.name === "From")?.value ?? "";
+  const bodyText = data.payload ? extractBodyText(data.payload) : (data.snippet ?? "");
+
   return {
     id,
     subject,
     sender,
-    snippet: data.snippet ?? "",
+    snippet: bodyText || data.snippet || "",
     internalDate: data.internalDate,
   };
 }

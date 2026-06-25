@@ -90,6 +90,31 @@ export async function processJobEmail(params: {
           new_status: newStatus,
           changed_by: "gmail_sync",
         });
+      } else {
+        // No prior "applied" entry exists for this company — this email is our first
+        // signal of this application's existence (e.g. applied directly by email and the
+        // first trace we see is the interview/offer itself). Create the row now instead
+        // of silently dropping it; flag for review since we're inferring backwards.
+        const inferredStatus =
+          extracted.classified_type === "offer" ? "offer" :
+          extracted.classified_type === "rejection" ? "rejected" :
+          extracted.classified_type === "interview" ? "interview" : "applied";
+
+        const { data: inserted } = await admin
+          .from("applications")
+          .insert({
+            user_id: userId,
+            company_name: extracted.company_name,
+            job_title: extracted.job_title ?? "Unknown role",
+            source: "gmail",
+            medium: extracted.source ?? "other",
+            status: inferredStatus,
+            applied_at: receivedAt,
+            needs_review: true,
+          })
+          .select("id")
+          .single();
+        applicationId = inserted?.id ?? null;
       }
     }
   }

@@ -5,6 +5,35 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContai
 
 type Application = { applied_at: string; medium: string | null; status: string };
 
+const DAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+export function DayOfWeekChart({ apps }: { apps: Application[] }) {
+  const data = useMemo(() => {
+    const counts = new Array(7).fill(0);
+    for (const a of apps) counts[new Date(a.applied_at).getDay()] += 1;
+    return DAY_LABELS.map((label, i) => ({ day: label, count: counts[i] }));
+  }, [apps]);
+
+  return (
+    <div className="rounded-xl border p-5" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+      <h2 className="font-display text-sm font-semibold" style={{ color: "var(--text-high)" }}>
+        Applications by day of week
+      </h2>
+      <p className="mt-0.5 text-xs" style={{ color: "var(--text-low)" }}>Where your application energy actually goes</p>
+      <ResponsiveContainer width="100%" height={200}>
+        <BarChart data={data} margin={{ top: 16 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
+          <XAxis dataKey="day" stroke="var(--text-low)" fontSize={11} tickLine={false} axisLine={false} />
+          <YAxis stroke="var(--text-low)" fontSize={10} tickLine={false} axisLine={false} width={24} allowDecimals={false} />
+          <Tooltip contentStyle={{ background: "var(--app-bg)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }} cursor={{ fill: "var(--app-bg)" }} />
+          <Bar dataKey="count" fill="var(--purple)" radius={[4, 4, 0, 0]} barSize={28} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+
 const MEDIUM_LABELS: Record<string, string> = {
   linkedin: "LinkedIn",
   indeed: "Indeed",

@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Briefcase, MessageSquare, Users, Award, XCircle, Search, Bell } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import RoleMatchWidget from "@/components/RoleMatchWidget";
-import GrindHeatmap from "@/components/GrindHeatmap";
-import { TrendChart, MediumBreakdownChart, ConversionFunnel } from "@/components/Charts";
+import Sidebar from "@/components/Sidebar";
+import PipelineFunnel from "@/components/PipelineFunnel";
+import RecentActivity from "@/components/RecentActivity";
+import { TrendChart, MediumBreakdownChart } from "@/components/Charts";
 
 type Application = {
   id: string;
@@ -21,6 +24,12 @@ type Application = {
 const RANGES = [30, 60, 90] as const;
 type Range = (typeof RANGES)[number];
 
+const AVATAR_COLORS = ["#2563eb", "#7c3aed", "#059669", "#d97706", "#dc2626", "#0891b2"];
+function avatarColor(name: string) {
+  const idx = name.split("").reduce((sum, c) => sum + c.charCodeAt(0), 0) % AVATAR_COLORS.length;
+  return AVATAR_COLORS[idx];
+}
+
 export default function DashboardClient() {
   const supabase = useMemo(() => createClient(), []);
   const [apps, setApps] = useState<Application[]>([]);
@@ -28,11 +37,14 @@ export default function DashboardClient() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [gmailConnected, setGmailConnected] = useState<boolean | null>(null);
+  const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    async function checkGmail() {
+    async function checkUser() {
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) return;
+      setUserEmail(userData.user.email);
       const { data } = await supabase
         .from("profiles")
         .select("gmail_connected")
@@ -40,7 +52,7 @@ export default function DashboardClient() {
         .maybeSingle();
       setGmailConnected(data?.gmail_connected ?? false);
     }
-    checkGmail();
+    checkUser();
   }, [supabase]);
 
   useEffect(() => {
@@ -59,9 +71,7 @@ export default function DashboardClient() {
 
     channel = supabase
       .channel("applications-changes")
-      .on("postgres_changes", { event: "*", schema: "public", table: "applications" }, () => {
-        load();
-      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "applications" }, () => load())
       .subscribe();
 
     return () => {
@@ -80,30 +90,59 @@ export default function DashboardClient() {
     [apps, cutoff]
   );
 
+  const searched = useMemo(() => {
+    if (!search.trim()) return filtered;
+    const q = search.toLowerCase();
+    return filtered.filter(
+      (a) => a.company_name.toLowerCase().includes(q) || a.job_title.toLowerCase().includes(q)
+    );
+  }, [filtered, search]);
+
   const total = filtered.length;
   const interviewed = filtered.filter((a) => a.status === "interview" || a.status === "offer").length;
   const offers = filtered.filter((a) => a.status === "offer").length;
+  const rejections = filtered.filter((a) => a.status === "rejected").length;
   const responseRate = total > 0 ? Math.round((interviewed / total) * 100) : 0;
 
   return (
-    <div className="min-h-screen px-6 py-8" style={{ background: "var(--ink)", color: "var(--text-high)" }}>
-      <div className="mx-auto max-w-6xl">
-        {/* Header */}
+    <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
+      <Sidebar userEmail={userEmail} />
+
+      <main className="flex-1 px-6 py-6 lg:px-8">
+        {/* Top bar */}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-2xl font-semibold tracking-tight">Job Application Tracker</h1>
-            <p className="font-data text-xs" style={{ color: "var(--text-low)" }}>
-              {gmailConnected === true ? "● Gmail syncing automatically" : gmailConnected === false ? "○ Gmail not connected" : ""}
+            <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>
+              Application Dashboard
+            </h1>
+            <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+              {gmailConnected === true ? "Gmail syncing automatically" : "Gmail not connected"}
             </p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2.5">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5" style={{ color: "var(--text-faint)" }} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search applications…"
+                className="w-48 rounded-md border py-1.5 pl-8 pr-3 text-sm outline-none"
+                style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text-high)" }}
+              />
+            </div>
             <RangeToggle range={range} onChange={setRange} />
             <button
-              onClick={() => setShowAddForm((v) => !v)}
-              className="font-display rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-              style={{ background: "var(--gold)", color: "var(--ink)" }}
+              className="flex h-8 w-8 items-center justify-center rounded-md border"
+              style={{ borderColor: "var(--line)", background: "var(--surface)" }}
             >
-              {showAddForm ? "Close" : "+ Add manually"}
+              <Bell className="h-4 w-4" style={{ color: "var(--text-low)" }} />
+            </button>
+            <button
+              onClick={() => setShowAddForm((v) => !v)}
+              className="font-display rounded-md px-3.5 py-2 text-sm font-semibold text-white"
+              style={{ background: "var(--blue)" }}
+            >
+              {showAddForm ? "Close" : "+ Add Application"}
             </button>
           </div>
         </div>
@@ -111,8 +150,8 @@ export default function DashboardClient() {
         {gmailConnected === false && (
           <a
             href="/api/auth/google/start"
-            className="mt-4 block rounded-md border px-4 py-3 text-sm transition-colors hover:border-[var(--gold)]"
-            style={{ borderColor: "var(--line)", background: "var(--surface)", color: "var(--text-high)" }}
+            className="mt-4 block rounded-lg border px-4 py-3 text-sm"
+            style={{ borderColor: "var(--line)", background: "var(--blue-bg)", color: "var(--blue)" }}
           >
             Connect Gmail to auto-log applications and offers →
           </a>
@@ -121,72 +160,73 @@ export default function DashboardClient() {
         {showAddForm && <AddApplicationForm onAdded={() => setShowAddForm(false)} />}
 
         {/* KPI row */}
-        <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="Total applied" value={total} />
-          <KpiCard label="Interviews" value={interviewed} accent="var(--gold)" />
-          <KpiCard label="Offers" value={offers} accent="var(--teal)" />
-          <KpiCard label="Response rate" value={`${responseRate}%`} accent="var(--gold)" />
+        <div className="mt-6 grid grid-cols-2 gap-3.5 sm:grid-cols-3 lg:grid-cols-5">
+          <KpiCard icon={Briefcase} label="Jobs Applied" value={total} color="var(--blue)" bg="var(--blue-bg)" />
+          <KpiCard icon={MessageSquare} label="Response Rate" value={`${responseRate}%`} color="var(--purple)" bg="var(--purple-bg)" />
+          <KpiCard icon={Users} label="Interview Stage" value={interviewed} color="var(--amber)" bg="var(--amber-bg)" />
+          <KpiCard icon={Award} label="Offers Received" value={offers} color="var(--green)" bg="var(--green-bg)" />
+          <KpiCard icon={XCircle} label="Rejections" value={rejections} color="var(--red)" bg="var(--red-bg)" />
         </div>
 
-        {/* Signature heatmap */}
-        <div className="mt-6">
-          <GrindHeatmap dates={apps.map((a) => a.applied_at)} />
+        {/* Pipeline + Recent activity */}
+        <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <PipelineFunnel apps={filtered} />
+          </div>
+          <RecentActivity apps={apps} />
         </div>
 
-        {/* Charts row */}
-        <div className="mt-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        {/* Charts */}
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
           <div className="lg:col-span-2">
             <TrendChart apps={filtered} days={range} />
           </div>
-          <ConversionFunnel apps={filtered} />
-        </div>
-
-        <div className="mt-4">
           <MediumBreakdownChart apps={filtered} />
         </div>
 
         {/* Table */}
-        <div className="mt-8">
-          <h2 className="font-display mb-3 text-sm font-semibold" style={{ color: "var(--text-low)" }}>
-            APPLICATIONS ({filtered.length})
-          </h2>
+        <div className="mt-6 rounded-xl border" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+          <div className="flex items-center justify-between px-5 py-4">
+            <h2 className="font-display text-sm font-semibold" style={{ color: "var(--text-high)" }}>
+              All Applications <span style={{ color: "var(--text-faint)" }}>— {searched.length} results</span>
+            </h2>
+          </div>
           {loading ? (
-            <p className="text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
+            <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
           ) : (
-            <ApplicationsTable apps={filtered} />
+            <ApplicationsTable apps={searched} />
           )}
         </div>
 
         <RoleMatchWidget />
-      </div>
+      </main>
     </div>
   );
 }
 
-function KpiCard({ label, value, accent }: { label: string; value: number | string; accent?: string }) {
+function KpiCard({
+  icon: Icon, label, value, color, bg,
+}: { icon: typeof Briefcase; label: string; value: number | string; color: string; bg: string }) {
   return (
-    <div className="rounded-lg border p-4" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-      <p className="font-data text-xs" style={{ color: "var(--text-low)" }}>{label}</p>
-      <p className="font-display mt-1 text-2xl font-semibold" style={{ color: accent ?? "var(--text-high)" }}>
-        {value}
-      </p>
+    <div className="rounded-xl border p-4" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+      <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: bg }}>
+        <Icon className="h-4 w-4" style={{ color }} />
+      </div>
+      <p className="mt-3 text-xs font-medium" style={{ color: "var(--text-low)" }}>{label}</p>
+      <p className="font-display mt-0.5 text-2xl font-bold" style={{ color: "var(--text-high)" }}>{value}</p>
     </div>
   );
 }
 
 function RangeToggle({ range, onChange }: { range: Range; onChange: (r: Range) => void }) {
   return (
-    <div className="flex rounded-md border p-0.5" style={{ borderColor: "var(--line)" }}>
+    <div className="flex rounded-md border p-0.5" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
       {RANGES.map((r) => (
         <button
           key={r}
           onClick={() => onChange(r)}
-          className="font-data rounded px-2.5 py-1 text-xs font-medium transition-colors"
-          style={
-            range === r
-              ? { background: "var(--gold)", color: "var(--ink)" }
-              : { color: "var(--text-low)" }
-          }
+          className="rounded px-2.5 py-1 text-xs font-semibold transition-colors"
+          style={range === r ? { background: "var(--blue)", color: "white" } : { color: "var(--text-low)" }}
         >
           {r}d
         </button>
@@ -196,61 +236,64 @@ function RangeToggle({ range, onChange }: { range: Range; onChange: (r: Range) =
 }
 
 const STATUS_STYLES: Record<string, { bg: string; fg: string }> = {
-  applied: { bg: "var(--surface-raised)", fg: "var(--text-low)" },
-  interview: { bg: "#3a2f12", fg: "var(--gold)" },
-  offer: { bg: "#173127", fg: "var(--teal)" },
-  rejected: { bg: "#3a1f1a", fg: "var(--coral)" },
+  applied: { bg: "var(--blue-bg)", fg: "var(--blue)" },
+  interview: { bg: "var(--amber-bg)", fg: "var(--amber)" },
+  offer: { bg: "var(--green-bg)", fg: "var(--green)" },
+  rejected: { bg: "var(--red-bg)", fg: "var(--red)" },
 };
 
 function ApplicationsTable({ apps }: { apps: Application[] }) {
   if (apps.length === 0) {
     return (
-      <p
-        className="rounded-md border p-6 text-center text-sm"
-        style={{ borderColor: "var(--line)", color: "var(--text-low)" }}
-      >
-        No applications in this range yet. They&apos;ll show up here automatically once email syncing is on.
+      <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-faint)" }}>
+        No applications match. They&apos;ll show up here automatically once email syncing is on.
       </p>
     );
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--line)" }}>
+    <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
-        <thead
-          className="font-data text-xs uppercase"
-          style={{ background: "var(--surface)", color: "var(--text-low)" }}
-        >
-          <tr>
-            <th className="px-4 py-2">Position</th>
-            <th className="px-4 py-2">Company</th>
-            <th className="px-4 py-2">Pay</th>
-            <th className="px-4 py-2">Date applied</th>
-            <th className="px-4 py-2">Medium</th>
-            <th className="px-4 py-2">Status</th>
+        <thead className="text-xs uppercase" style={{ color: "var(--text-faint)" }}>
+          <tr className="border-t" style={{ borderColor: "var(--line)" }}>
+            <th className="px-5 py-2.5 font-medium">Company</th>
+            <th className="px-5 py-2.5 font-medium">Position</th>
+            <th className="px-5 py-2.5 font-medium">Date Applied</th>
+            <th className="px-5 py-2.5 font-medium">Channel</th>
+            <th className="px-5 py-2.5 font-medium">Status</th>
+            <th className="px-5 py-2.5 font-medium">Pay</th>
           </tr>
         </thead>
         <tbody>
           {apps.map((a) => {
             const style = STATUS_STYLES[a.status] ?? STATUS_STYLES.applied;
             return (
-              <tr key={a.id} className="border-t" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-                <td className="px-4 py-2 font-medium">{a.job_title}</td>
-                <td className="px-4 py-2">{a.company_name}</td>
-                <td className="font-data px-4 py-2" style={{ color: "var(--text-low)" }}>{a.pay ?? "—"}</td>
-                <td className="font-data px-4 py-2" style={{ color: "var(--text-low)" }}>
-                  {new Date(a.applied_at).toLocaleDateString()}
+              <tr key={a.id} className="border-t" style={{ borderColor: "var(--line)" }}>
+                <td className="px-5 py-3">
+                  <div className="flex items-center gap-2.5">
+                    <div
+                      className="font-display flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-xs font-bold text-white"
+                      style={{ background: avatarColor(a.company_name) }}
+                    >
+                      {a.company_name.slice(0, 1).toUpperCase()}
+                    </div>
+                    <span className="font-medium" style={{ color: "var(--text-high)" }}>{a.company_name}</span>
+                  </div>
                 </td>
-                <td className="px-4 py-2 capitalize" style={{ color: "var(--text-low)" }}>{a.medium ?? "—"}</td>
-                <td className="px-4 py-2">
+                <td className="px-5 py-3" style={{ color: "var(--text-high)" }}>{a.job_title}</td>
+                <td className="px-5 py-3" style={{ color: "var(--text-low)" }}>
+                  {new Date(a.applied_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                </td>
+                <td className="px-5 py-3 capitalize" style={{ color: "var(--text-low)" }}>{a.medium ?? "—"}</td>
+                <td className="px-5 py-3">
                   <span
-                    className="font-data rounded px-2 py-0.5 text-xs capitalize"
+                    className="rounded-full px-2.5 py-1 text-xs font-semibold capitalize"
                     style={{ background: style.bg, color: style.fg }}
                   >
-                    {a.status}
-                    {a.needs_review ? " · review" : ""}
+                    {a.status}{a.needs_review ? " · review" : ""}
                   </span>
                 </td>
+                <td className="px-5 py-3" style={{ color: "var(--text-low)" }}>{a.pay ?? "—"}</td>
               </tr>
             );
           })}
@@ -263,10 +306,7 @@ function ApplicationsTable({ apps }: { apps: Application[] }) {
 function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
   const supabase = useMemo(() => createClient(), []);
   const [form, setForm] = useState({
-    job_title: "",
-    company_name: "",
-    pay: "",
-    medium: "linkedin",
+    job_title: "", company_name: "", pay: "", medium: "linkedin",
     applied_at: new Date().toISOString().slice(0, 10),
   });
   const [saving, setSaving] = useState(false);
@@ -278,48 +318,34 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
     setError(null);
     const { data: userData } = await supabase.auth.getUser();
     const { error: insertError } = await supabase.from("applications").insert({
-      ...form,
-      user_id: userData.user?.id,
-      source: "manual",
-      status: "applied",
-      needs_review: false,
+      ...form, user_id: userData.user?.id, source: "manual", status: "applied", needs_review: false,
     });
     setSaving(false);
-    if (insertError) {
-      setError(insertError.message);
-      return;
-    }
+    if (insertError) { setError(insertError.message); return; }
     onAdded();
   }
 
-  const inputStyle = {
-    borderColor: "var(--line)",
-    background: "var(--ink)",
-    color: "var(--text-high)",
-  };
+  const inputStyle = { borderColor: "var(--line)", background: "var(--app-bg)", color: "var(--text-high)" };
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-4 grid grid-cols-2 gap-3 rounded-lg border p-4 sm:grid-cols-5"
-      style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-    >
+    <form onSubmit={handleSubmit} className="mt-4 grid grid-cols-2 gap-3 rounded-xl border p-4 sm:grid-cols-5"
+      style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
       {error && (
-        <p className="col-span-2 rounded px-2 py-1.5 text-xs sm:col-span-5" style={{ background: "#3a1f1a", color: "var(--coral)" }}>
+        <p className="col-span-2 rounded px-2 py-1.5 text-xs sm:col-span-5" style={{ background: "var(--red-bg)", color: "var(--red)" }}>
           {error}
         </p>
       )}
       <input required placeholder="Position" value={form.job_title}
         onChange={(e) => setForm({ ...form, job_title: e.target.value })}
-        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
+        className="rounded-md border px-2.5 py-1.5 text-sm" style={inputStyle} />
       <input required placeholder="Company" value={form.company_name}
         onChange={(e) => setForm({ ...form, company_name: e.target.value })}
-        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
+        className="rounded-md border px-2.5 py-1.5 text-sm" style={inputStyle} />
       <input placeholder="Pay (optional)" value={form.pay}
         onChange={(e) => setForm({ ...form, pay: e.target.value })}
-        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
+        className="rounded-md border px-2.5 py-1.5 text-sm" style={inputStyle} />
       <select value={form.medium} onChange={(e) => setForm({ ...form, medium: e.target.value })}
-        className="rounded border px-2 py-1.5 text-sm" style={inputStyle}>
+        className="rounded-md border px-2.5 py-1.5 text-sm" style={inputStyle}>
         <option value="linkedin">LinkedIn</option>
         <option value="indeed">Indeed</option>
         <option value="email">Email</option>
@@ -328,10 +354,10 @@ function AddApplicationForm({ onAdded }: { onAdded: () => void }) {
       </select>
       <input type="date" value={form.applied_at}
         onChange={(e) => setForm({ ...form, applied_at: e.target.value })}
-        className="rounded border px-2 py-1.5 text-sm" style={inputStyle} />
+        className="rounded-md border px-2.5 py-1.5 text-sm" style={inputStyle} />
       <button type="submit" disabled={saving}
-        className="font-display col-span-2 rounded px-3 py-1.5 text-sm font-medium sm:col-span-1"
-        style={{ background: "var(--gold)", color: "var(--ink)" }}>
+        className="font-display col-span-2 rounded-md px-3 py-1.5 text-sm font-semibold text-white sm:col-span-1"
+        style={{ background: "var(--blue)" }}>
         {saving ? "Saving…" : "Save"}
       </button>
     </form>

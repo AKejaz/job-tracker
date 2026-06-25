@@ -1,29 +1,36 @@
-@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Inter:wght@400;500;600&display=swap");
 @import "tailwindcss";
 
 :root {
-  --ink: #0c0e12;
-  --surface: #14171c;
-  --surface-raised: #1b1f26;
-  --line: #262b33;
-  --gold: #e8a33d;
-  --gold-dim: #e8a33d33;
-  --teal: #4fb286;
-  --coral: #d2685a;
-  --text-high: #edeff2;
-  --text-low: #8a8f99;
+  --app-bg: #f6f7f9;
+  --sidebar-bg: #11192e;
+  --sidebar-bg-active: #1b2540;
+  --surface: #ffffff;
+  --line: #e7e9ee;
+  --text-high: #111827;
+  --text-low: #6b7280;
+  --text-faint: #9ca3af;
 
-  --font-display: "Space Grotesk", sans-serif;
+  --blue: #2563eb;
+  --blue-bg: #eaf0fe;
+  --amber: #d97706;
+  --amber-bg: #fef3e2;
+  --green: #059669;
+  --green-bg: #e6f6ef;
+  --red: #dc2626;
+  --red-bg: #fdeceb;
+  --purple: #7c3aed;
+  --purple-bg: #f1eafe;
+
+  --font-display: "Plus Jakarta Sans", sans-serif;
   --font-body: "Inter", sans-serif;
-  --font-data: "JetBrains Mono", monospace;
 }
 
 body {
-  background: var(--ink);
+  background: var(--app-bg);
   color: var(--text-high);
   font-family: var(--font-body);
 }
 
 .font-display { font-family: var(--font-display); }
-.font-data { font-family: var(--font-data); }
 

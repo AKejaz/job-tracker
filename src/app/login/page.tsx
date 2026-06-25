@@ -19,7 +19,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--ink)" }}>
+    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--app-bg)" }}>
       <div className="w-full max-w-sm">
         <h1 className="font-display text-xl font-semibold" style={{ color: "var(--text-high)" }}>
           Job Tracker
@@ -47,12 +47,12 @@ export default function LoginPage() {
               type="submit"
               disabled={status === "sending"}
               className="font-display w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-50"
-              style={{ background: "var(--gold)", color: "var(--ink)" }}
+              style={{ background: "var(--blue)", color: "white" }}
             >
               {status === "sending" ? "Sending…" : "Send magic link"}
             </button>
             {status === "error" && (
-              <p className="text-sm" style={{ color: "var(--coral)" }}>Something went wrong. Try again.</p>
+              <p className="text-sm" style={{ color: "var(--red)" }}>Something went wrong. Try again.</p>
             )}
           </form>
         )}

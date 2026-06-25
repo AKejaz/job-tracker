@@ -41,18 +41,18 @@ export function TrendChart({ apps, days }: { apps: Application[]; days: number }
         <AreaChart data={data}>
           <defs>
             <linearGradient id="goldFade" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.5} />
-              <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--blue)" stopOpacity={0.5} />
+              <stop offset="100%" stopColor="var(--blue)" stopOpacity={0} />
             </linearGradient>
           </defs>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--line)" vertical={false} />
           <XAxis dataKey="date" stroke="var(--text-low)" fontSize={10} tickLine={false} axisLine={false} interval="preserveStartEnd" />
           <YAxis stroke="var(--text-low)" fontSize={10} tickLine={false} axisLine={false} width={24} allowDecimals={false} />
           <Tooltip
-            contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
+            contentStyle={{ background: "var(--app-bg)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
             labelStyle={{ color: "var(--text-high)" }}
           />
-          <Area type="monotone" dataKey="count" stroke="var(--gold)" strokeWidth={2} fill="url(#goldFade)" />
+          <Area type="monotone" dataKey="count" stroke="var(--blue)" strokeWidth={2} fill="url(#goldFade)" />
         </AreaChart>
       </ResponsiveContainer>
     </div>
@@ -83,10 +83,10 @@ export function MediumBreakdownChart({ apps }: { apps: Application[] }) {
           <XAxis type="number" stroke="var(--text-low)" fontSize={10} tickLine={false} axisLine={false} allowDecimals={false} />
           <YAxis type="category" dataKey="medium" stroke="var(--text-low)" fontSize={11} tickLine={false} axisLine={false} width={80} />
           <Tooltip
-            contentStyle={{ background: "var(--surface-raised)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
-            cursor={{ fill: "var(--surface-raised)" }}
+            contentStyle={{ background: "var(--app-bg)", border: "1px solid var(--line)", borderRadius: 6, fontSize: 12 }}
+            cursor={{ fill: "var(--app-bg)" }}
           />
-          <Bar dataKey="count" fill="var(--gold)" radius={[0, 4, 4, 0]} barSize={14} />
+          <Bar dataKey="count" fill="var(--blue)" radius={[0, 4, 4, 0]} barSize={14} />
         </BarChart>
       </ResponsiveContainer>
     </div>
@@ -100,9 +100,9 @@ export function ConversionFunnel({ apps }: { apps: Application[] }) {
     const interviewed = apps.filter((a) => a.status === "interview" || a.status === "offer").length;
     const offered = apps.filter((a) => a.status === "offer").length;
     return [
-      { label: "Applied", value: total, color: "var(--gold)" },
+      { label: "Applied", value: total, color: "var(--blue)" },
       { label: "Interview", value: interviewed, color: "#c98a32" },
-      { label: "Offer", value: offered, color: "var(--teal)" },
+      { label: "Offer", value: offered, color: "var(--green)" },
     ];
   }, [apps]);
 
@@ -120,7 +120,7 @@ export function ConversionFunnel({ apps }: { apps: Application[] }) {
               <span>{s.label}</span>
               <span style={{ color: "var(--text-high)" }}>{s.value}</span>
             </div>
-            <div className="h-2 rounded-full" style={{ background: "var(--surface-raised)" }}>
+            <div className="h-2 rounded-full" style={{ background: "var(--app-bg)" }}>
               <div
                 className="h-2 rounded-full transition-all"
                 style={{ width: `${(s.value / max) * 100}%`, background: s.color }}

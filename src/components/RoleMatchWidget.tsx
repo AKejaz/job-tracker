@@ -36,13 +36,13 @@ export default function RoleMatchWidget() {
           rows={6}
           placeholder="Paste resume text here…"
           className="w-full rounded border px-3 py-2 text-sm"
-          style={{ borderColor: "var(--line)", background: "var(--ink)", color: "var(--text-high)" }}
+          style={{ borderColor: "var(--line)", background: "var(--app-bg)", color: "var(--text-high)" }}
         />
         <button
           type="submit"
           disabled={loading}
           className="font-display rounded px-3 py-1.5 text-sm font-medium disabled:opacity-50"
-          style={{ background: "var(--gold)", color: "var(--ink)" }}
+          style={{ background: "var(--blue)", color: "white" }}
         >
           {loading ? "Analyzing…" : "Find matching roles"}
         </button>

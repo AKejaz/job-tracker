@@ -3,20 +3,29 @@ import { createClient } from "@/lib/supabase/server";
 import { groqJSON } from "@/lib/groq";
 
 type RoleMatch = { title: string; reasoning: string };
-type RoleMatchResponse = { matches: RoleMatch[] };
+type CompanyMatch = { name: string; why: string };
+type RoleMatchResponse = { matches: RoleMatch[]; companies: CompanyMatch[] };
 
-const SYSTEM_PROMPT = `You are a career advisor specializing in the Islamabad/Rawalpindi, Pakistan tech and
-business job market in 2026. Given a candidate's resume text, suggest 6-10 specific job title strings
-they are realistically qualified to apply for right now in that market (not aspirational titles requiring
-years they don't have). Return strict JSON: { "matches": [{ "title": string, "reasoning": string }] }.
-Keep reasoning to one sentence each, grounded in specific resume content, not generic flattery.`;
+const SYSTEM_PROMPT = `You are a career advisor. Given a candidate's resume text and a target location,
+return strict JSON:
+{
+  "matches": [{ "title": string, "reasoning": string }],   // 6-10 specific job titles they're realistically
+                                                              qualified for right now, not aspirational titles
+  "companies": [{ "name": string, "why": string }]          // 6-10 real, specific companies (not generic
+                                                              categories) operating in or hiring for the given
+                                                              location, plausible fits for this candidate's
+                                                              background, with one-sentence reasoning each
+}
+Keep reasoning grounded in specific resume content, not generic flattery. Be specific with company names —
+prefer real companies known to operate or hire in that location over vague suggestions. If you are not
+confident about current hiring activity, say so briefly in the reasoning rather than inventing specifics.`;
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
-  const { resume_text } = await req.json();
+  const { resume_text, location } = await req.json();
   if (!resume_text || typeof resume_text !== "string") {
     return NextResponse.json({ error: "resume_text is required" }, { status: 400 });
   }
@@ -27,19 +36,22 @@ export async function POST(req: NextRequest) {
     .select("id")
     .single();
 
-  const result = await groqJSON<RoleMatchResponse>(SYSTEM_PROMPT, resume_text);
+  const result = await groqJSON<RoleMatchResponse>(
+    SYSTEM_PROMPT,
+    `Target location: ${location || "Islamabad, Pakistan"}\n\nResume:\n${resume_text}`
+  );
 
-  const rows = result.matches.map((m) => ({
+  const roleRows = result.matches.map((m) => ({
     user_id: user.id,
     resume_id: resumeRow?.id ?? null,
     suggested_title: m.title,
     reasoning: m.reasoning,
-    market: "Islamabad",
+    market: location || "Islamabad",
   }));
 
-  if (rows.length > 0) {
-    await supabase.from("role_matches").insert(rows);
+  if (roleRows.length > 0) {
+    await supabase.from("role_matches").insert(roleRows);
   }
 
-  return NextResponse.json({ matches: result.matches });
+  return NextResponse.json({ matches: result.matches, companies: result.companies ?? [] });
 }

@@ -3,25 +3,39 @@ import { groqJSON } from "@/lib/groq";
 
 type ExtractedEmail = {
   is_job_related: boolean;
-  classified_type: "application_confirmation" | "interview" | "offer" | "rejection" | "other";
+  classified_type: "application_confirmation" | "interview" | "offer" | "rejection" | "job_recommendation" | "other";
   company_name: string | null;
   job_title: string | null;
   source: "linkedin" | "indeed" | "email" | "company_site" | "other" | null;
 };
 
-const SYSTEM_PROMPT = `You read job-application-related emails and extract structured data.
+const SYSTEM_PROMPT = `You read job-related emails and extract structured data.
 Return strict JSON matching this shape:
 {
   "is_job_related": boolean,
-  "classified_type": "application_confirmation" | "interview" | "offer" | "rejection" | "other",
+  "classified_type": "application_confirmation" | "interview" | "offer" | "rejection" | "job_recommendation" | "other",
   "company_name": string | null,
   "job_title": string | null,
   "source": "linkedin" | "indeed" | "email" | "company_site" | "other" | null
 }
+
+CRITICAL distinction — read carefully:
+- "application_confirmation" means the recipient THEMSELVES already submitted an application and this email
+  confirms THAT specific action (e.g. "Your application was sent to X", "Thank you for applying to Y",
+  "We received your application").
+- "job_recommendation" means the email is SUGGESTING or ALERTING the recipient about jobs they have NOT
+  yet applied to — e.g. "Your job alert for X", "Jobs you may be interested in", "X is actively recruiting",
+  "Recommended for you", weekly/daily digest emails listing multiple job postings. These are NOT applications.
+  LinkedIn and Indeed send enormous volumes of these — when in doubt between application_confirmation and
+  job_recommendation, and the email lists multiple unrelated job postings or uses suggestive/alert language
+  rather than confirming a specific submitted action, choose "job_recommendation".
+- Never classify a job_recommendation as application_confirmation just because it contains a company name and
+  job title — recommendation emails always contain those too.
+
 "source" means how the application was originally submitted, inferred from sender domain/content
 (e.g. linkedin.com -> "linkedin", indeed.com -> "indeed", a company's own domain -> "company_site",
 a generic recruiter/HR email with no platform -> "email").
-If the email is not related to a job application at all, set is_job_related to false and other fields to null.
+If the email is not related to jobs at all, set is_job_related to false and other fields to null.
 Be conservative: only extract a company_name/job_title if reasonably confident.`;
 
 export async function processJobEmail(params: {
@@ -48,8 +62,9 @@ export async function processJobEmail(params: {
   );
 
   let applicationId: string | null = null;
+  const ACTIONABLE_TYPES = ["application_confirmation", "interview", "offer", "rejection"];
 
-  if (extracted.is_job_related && extracted.company_name) {
+  if (extracted.is_job_related && extracted.company_name && ACTIONABLE_TYPES.includes(extracted.classified_type)) {
     if (extracted.classified_type === "application_confirmation") {
       const { data: inserted } = await admin
         .from("applications")

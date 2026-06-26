@@ -11,6 +11,7 @@ import { TrendChart, MediumBreakdownChart } from "@/components/Charts";
 import AnalyticsView from "@/components/AnalyticsView";
 import TrendsView from "@/components/TrendsView";
 import EditApplicationModal from "@/components/EditApplicationModal";
+import ChatWidget from "@/components/ChatWidget";
 
 type Application = {
   id: string;
@@ -211,6 +212,7 @@ export default function DashboardClient() {
       </main>
 
       {editing && <EditApplicationModal app={editing} onClose={() => setEditing(null)} />}
+      <ChatWidget />
     </div>
   );
 }

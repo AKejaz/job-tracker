@@ -1,10 +1,14 @@
 "use client";
 
+import GoalWidget from "@/components/GoalWidget";
+
 export type View = "dashboard" | "analytics" | "trends";
 
+type Application = { applied_at: string };
+
 export default function Sidebar({
-  userEmail, view, onChange,
-}: { userEmail?: string; view: View; onChange: (v: View) => void }) {
+  userEmail, view, onChange, apps,
+}: { userEmail?: string; view: View; onChange: (v: View) => void; apps: Application[] }) {
   return (
     <aside className="hidden h-screen w-56 flex-col justify-between px-4 py-5 lg:flex" style={{ background: "var(--sidebar-bg)" }}>
       <div>
@@ -33,11 +37,14 @@ export default function Sidebar({
         </nav>
       </div>
 
-      <div className="flex items-center gap-2 rounded-md px-2 py-2" style={{ background: "var(--sidebar-bg-active)" }}>
-        <div className="font-display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "var(--purple)" }}>
-          {(userEmail ?? "?").slice(0, 1).toUpperCase()}
+      <div className="space-y-3">
+        <GoalWidget apps={apps} />
+        <div className="flex items-center gap-2 rounded-md px-2 py-2" style={{ background: "var(--sidebar-bg-active)" }}>
+          <div className="font-display flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white" style={{ background: "var(--purple)" }}>
+            {(userEmail ?? "?").slice(0, 1).toUpperCase()}
+          </div>
+          <p className="truncate text-xs font-medium text-white">{userEmail ?? "Signed in"}</p>
         </div>
-        <p className="truncate text-xs font-medium text-white">{userEmail ?? "Signed in"}</p>
       </div>
     </aside>
   );

@@ -125,7 +125,7 @@ export default function DashboardClient() {
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
-      <Sidebar userEmail={userEmail} view={view} onChange={setView} />
+      <Sidebar userEmail={userEmail} view={view} onChange={setView} apps={apps} />
 
       <main className="flex-1 px-6 py-6 lg:px-8">
         {view !== "dashboard" ? (

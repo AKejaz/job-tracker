@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import ThemeToggle from "@/components/ThemeToggle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -19,7 +20,8 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4" style={{ background: "var(--app-bg)" }}>
+    <div className="relative flex min-h-screen items-center justify-center px-4" style={{ background: "var(--app-bg)" }}>
+      <div className="absolute right-4 top-4"><ThemeToggle /></div>
       <div className="w-full max-w-sm">
         <h1 className="font-display text-xl font-semibold" style={{ color: "var(--text-high)" }}>
           Job Tracker

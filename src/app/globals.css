@@ -34,3 +34,30 @@ body {
 
 .font-display { font-family: var(--font-display); }
 
+[data-theme="dark"] {
+  --app-bg: #0d1117;
+  --sidebar-bg: #0a0e16;
+  --sidebar-bg-active: #161d2c;
+  --surface: #161b22;
+  --line: #2a3038;
+  --text-high: #e6e8eb;
+  --text-low: #9aa4b2;
+  --text-faint: #6b7480;
+
+  --blue: #5b9bf7;
+  --blue-bg: #16233f;
+  --amber: #f0a93d;
+  --amber-bg: #3a2c12;
+  --green: #34d399;
+  --green-bg: #103424;
+  --red: #f0655d;
+  --red-bg: #3a1714;
+  --purple: #a78bfa;
+  --purple-bg: #2a2049;
+}
+
+[data-theme="dark"] body {
+  background: var(--app-bg);
+  color: var(--text-high);
+}
+

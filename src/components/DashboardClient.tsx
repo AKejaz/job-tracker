@@ -12,6 +12,7 @@ import AnalyticsView from "@/components/AnalyticsView";
 import TrendsView from "@/components/TrendsView";
 import EditApplicationModal from "@/components/EditApplicationModal";
 import ChatWidget from "@/components/ChatWidget";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Application = {
   id: string;
@@ -117,7 +118,8 @@ export default function DashboardClient() {
       <main className="flex-1 px-6 py-6 lg:px-8">
         {view !== "dashboard" ? (
           <>
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <ThemeToggle />
               <RangeToggle range={range} onChange={setRange} />
             </div>
             <div className="mt-4">
@@ -149,6 +151,7 @@ export default function DashboardClient() {
                   />
                 </div>
                 <RangeToggle range={range} onChange={setRange} />
+                <ThemeToggle />
                 <button className="flex h-8 w-8 items-center justify-center rounded-md border" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
                   <Bell className="h-4 w-4" style={{ color: "var(--text-low)" }} />
                 </button>

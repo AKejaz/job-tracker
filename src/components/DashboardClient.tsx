@@ -46,6 +46,8 @@ export default function DashboardClient() {
   const [search, setSearch] = useState("");
   const [view, setView] = useState<View>("dashboard");
   const [editing, setEditing] = useState<Application | null>(null);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     async function checkUser() {
@@ -104,6 +106,16 @@ export default function DashboardClient() {
       (a) => a.company_name.toLowerCase().includes(q) || a.job_title.toLowerCase().includes(q)
     );
   }, [filtered, search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, range]);
+
+  const totalPages = Math.max(1, Math.ceil(searched.length / PAGE_SIZE));
+  const paginated = useMemo(
+    () => searched.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [searched, page]
+  );
 
   const total = filtered.length;
   const interviewed = filtered.filter((a) => a.status === "interview" || a.status === "offer").length;
@@ -205,7 +217,10 @@ export default function DashboardClient() {
               {loading ? (
                 <p className="px-5 pb-5 text-sm" style={{ color: "var(--text-low)" }}>Loading…</p>
               ) : (
-                <ApplicationsTable apps={searched} onEdit={setEditing} />
+                <>
+                  <ApplicationsTable apps={paginated} onEdit={setEditing} />
+                  <PaginationFooter page={page} totalPages={totalPages} onChange={setPage} />
+                </>
               )}
             </div>
 
@@ -313,6 +328,53 @@ function ApplicationsTable({ apps, onEdit }: { apps: Application[]; onEdit: (a: 
           })}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function PaginationFooter({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
+  if (totalPages <= 1) return null;
+
+  // Show up to 5 page numbers centered around current page, with first/last always visible.
+  const pages = new Set<number>([1, totalPages, page, page - 1, page + 1].filter((p) => p >= 1 && p <= totalPages));
+  const sorted = Array.from(pages).sort((a, b) => a - b);
+
+  return (
+    <div className="flex items-center justify-between border-t px-5 py-3" style={{ borderColor: "var(--line)" }}>
+      <button
+        onClick={() => onChange(Math.max(1, page - 1))}
+        disabled={page === 1}
+        className="rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-40"
+        style={{ borderColor: "var(--line)", color: "var(--text-low)" }}
+      >
+        Previous
+      </button>
+
+      <div className="flex items-center gap-1">
+        {sorted.map((p, i) => (
+          <span key={p} className="flex items-center">
+            {i > 0 && sorted[i - 1] !== p - 1 && (
+              <span className="px-1 text-xs" style={{ color: "var(--text-faint)" }}>…</span>
+            )}
+            <button
+              onClick={() => onChange(p)}
+              className="rounded-md px-2.5 py-1 text-xs font-medium"
+              style={p === page ? { background: "var(--blue)", color: "white" } : { color: "var(--text-low)" }}
+            >
+              {p}
+            </button>
+          </span>
+        ))}
+      </div>
+
+      <button
+        onClick={() => onChange(Math.min(totalPages, page + 1))}
+        disabled={page === totalPages}
+        className="rounded-md border px-2.5 py-1 text-xs font-medium disabled:opacity-40"
+        style={{ borderColor: "var(--line)", color: "var(--text-low)" }}
+      >
+        Next
+      </button>
     </div>
   );
 }

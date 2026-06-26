@@ -13,6 +13,7 @@ import TrendsView from "@/components/TrendsView";
 import EditApplicationModal from "@/components/EditApplicationModal";
 import ChatWidget from "@/components/ChatWidget";
 import ThemeToggle from "@/components/ThemeToggle";
+import ExtensionSetup from "@/components/ExtensionSetup";
 
 type Application = {
   id: string;
@@ -225,6 +226,7 @@ export default function DashboardClient() {
             </div>
 
             <RoleMatchWidget />
+            <ExtensionSetup />
           </>
         )}
       </main>

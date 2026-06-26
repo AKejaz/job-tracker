@@ -8,6 +8,7 @@ const THEMES = [
   { id: "dark", label: "Dark", swatch: "#5b9bf7" },
   { id: "midnight", label: "Midnight", swatch: "#4d8dff" },
   { id: "blossom", label: "Blossom", swatch: "#d6336c" },
+  { id: "lavender", label: "Lavender", swatch: "#8b6fd1" },
 ];
 
 export default function ThemeToggle() {

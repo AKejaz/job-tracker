@@ -115,3 +115,30 @@ body {
   color: var(--text-high);
 }
 
+[data-theme="lavender"] {
+  --app-bg: #f5f2fb;
+  --sidebar-bg: #4a3a6b;
+  --sidebar-bg-active: #5d4a82;
+  --surface: #ffffff;
+  --line: #e6def5;
+  --text-high: #3d3154;
+  --text-low: #8577a3;
+  --text-faint: #b3a8cc;
+
+  --blue: #8b6fd1;
+  --blue-bg: #ece6fa;
+  --amber: #e0a458;
+  --amber-bg: #faf0e0;
+  --green: #6fae8f;
+  --green-bg: #e3f3ec;
+  --red: #d98ba0;
+  --red-bg: #fbe7ed;
+  --purple: #b07cc6;
+  --purple-bg: #f4e7f7;
+}
+
+[data-theme="lavender"] body {
+  background: var(--app-bg);
+  color: var(--text-high);
+}
+

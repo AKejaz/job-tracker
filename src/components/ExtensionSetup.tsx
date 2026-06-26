@@ -39,15 +39,8 @@ export default function ExtensionSetup() {
   }
 
   return (
-    <div className="mt-8 rounded-xl border p-5" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
-      <h2 className="font-display text-sm font-semibold" style={{ color: "var(--text-high)" }}>
-        Browser extension
-      </h2>
-      <p className="mt-1 text-xs" style={{ color: "var(--text-low)" }}>
-        Record applications from any job site with one click.
-      </p>
-
-      <div className="mt-4 flex flex-wrap gap-2">
+    <div className="mt-4 rounded-xl border p-5" style={{ borderColor: "var(--line)", background: "var(--surface)" }}>
+      <div className="flex flex-wrap gap-2">
         <a
           href="/job-tracker-extension.zip"
           download

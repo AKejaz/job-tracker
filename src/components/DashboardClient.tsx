@@ -138,6 +138,15 @@ export default function DashboardClient() {
             <div className="mt-4">
               {view === "analytics" && <AnalyticsView apps={apps} />}
               {view === "trends" && <TrendsView apps={apps} />}
+              {view === "extension" && (
+                <div>
+                  <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>Extension</h1>
+                  <p className="text-xs" style={{ color: "var(--text-faint)" }}>
+                    Record applications from any job site with one click.
+                  </p>
+                  <ExtensionSetup />
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -226,7 +235,6 @@ export default function DashboardClient() {
             </div>
 
             <RoleMatchWidget />
-            <ExtensionSetup />
           </>
         )}
       </main>

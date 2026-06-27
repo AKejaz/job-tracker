@@ -11,6 +11,12 @@ const THEMES = [
   { id: "lavender", label: "Lavender", swatch: "#8b6fd1" },
 ];
 
+// Fan sweeps from straight-down (90°) through left to straight-up (270°),
+// in screen-space angle convention (0°=right, 90°=down, 180°=left, 270°=up).
+const START_ANGLE = 95;
+const END_ANGLE = 255;
+const RADIUS = 78;
+
 export default function ThemeToggle() {
   const [theme, setTheme] = useState("light");
   const [open, setOpen] = useState(false);
@@ -40,36 +46,56 @@ export default function ThemeToggle() {
   }
 
   const current = THEMES.find((t) => t.id === theme) ?? THEMES[0];
+  const n = THEMES.length;
 
   return (
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-8 w-8 items-center justify-center rounded-md border"
-        style={{ borderColor: "var(--line)", background: "var(--surface)" }}
+        className="relative z-10 flex h-8 w-8 items-center justify-center rounded-md border transition-transform"
+        style={{
+          borderColor: "var(--line)",
+          background: "var(--surface)",
+          transform: open ? "scale(1.08)" : "scale(1)",
+        }}
         title="Change theme"
       >
         <Palette className="h-4 w-4" style={{ color: current.swatch }} />
       </button>
 
-      {open && (
-        <div
-          className="absolute right-0 top-9 z-50 w-40 rounded-md border p-1.5 shadow-lg"
-          style={{ borderColor: "var(--line)", background: "var(--surface)" }}
-        >
-          {THEMES.map((t) => (
-            <button
-              key={t.id}
-              onClick={() => applyTheme(t.id)}
-              className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm"
-              style={t.id === theme ? { background: "var(--app-bg)" } : {}}
-            >
-              <span className="h-3 w-3 rounded-full" style={{ background: t.swatch }} />
-              <span style={{ color: "var(--text-high)" }}>{t.label}</span>
-            </button>
-          ))}
-        </div>
-      )}
+      {THEMES.map((t, i) => {
+        const angle = n === 1 ? START_ANGLE : START_ANGLE + (i * (END_ANGLE - START_ANGLE)) / (n - 1);
+        const rad = (angle * Math.PI) / 180;
+        const x = open ? Math.cos(rad) * RADIUS : 0;
+        const y = open ? Math.sin(rad) * RADIUS : 0;
+        const isActive = t.id === theme;
+        const delay = open ? i * 35 : (n - 1 - i) * 25;
+
+        return (
+          <button
+            key={t.id}
+            onClick={() => applyTheme(t.id)}
+            title={t.label}
+            className="absolute flex flex-col items-center justify-center rounded-full border shadow-sm"
+            style={{
+              top: "4px",
+              left: "4px",
+              width: "40px",
+              height: "40px",
+              background: "var(--surface)",
+              borderColor: isActive ? t.swatch : "var(--line)",
+              borderWidth: isActive ? "2px" : "1px",
+              opacity: open ? 1 : 0,
+              pointerEvents: open ? "auto" : "none",
+              transform: `translate(${x}px, ${y}px) scale(${open ? 1 : 0.3})`,
+              transition: `transform 0.4s cubic-bezier(0.34, 1.4, 0.64, 1) ${delay}ms, opacity 0.25s ease ${delay}ms`,
+              zIndex: 5,
+            }}
+          >
+            <span className="h-2.5 w-2.5 rounded-full" style={{ background: t.swatch }} />
+          </button>
+        );
+      })}
     </div>
   );
 }

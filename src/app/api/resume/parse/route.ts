@@ -48,6 +48,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text });
   } catch (err) {
     console.error("Resume parse error:", err);
-    return NextResponse.json({ error: "Failed to parse this file. Try a different format." }, { status: 500 });
+    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
+    return NextResponse.json({ error: "Failed to parse this file. Try a different format.", detail }, { status: 500 });
   }
 }

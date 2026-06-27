@@ -142,3 +142,29 @@ body {
   color: var(--text-high);
 }
 
+[data-theme="forest"] {
+  --app-bg: #f3f9f4;
+  --sidebar-bg: #0f2417;
+  --sidebar-bg-active: #1a3825;
+  --surface: #ffffff;
+  --line: #dceee0;
+  --text-high: #122016;
+  --text-low: #5d7864;
+  --text-faint: #93ab9b;
+
+  --blue: #16a34a;
+  --blue-bg: #e6f6ec;
+  --amber: #c2780c;
+  --amber-bg: #fbeed9;
+  --green: #0d9f6e;
+  --green-bg: #e1f7ee;
+  --red: #dc2626;
+  --red-bg: #fdeceb;
+  --purple: #7c3aed;
+  --purple-bg: #f1eafe;
+}
+
+[data-theme="forest"] body {
+  background: var(--app-bg);
+  color: var(--text-high);
+}

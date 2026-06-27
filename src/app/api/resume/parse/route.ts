@@ -18,10 +18,12 @@ export async function POST(req: NextRequest) {
     let text = "";
 
     if (name.endsWith(".pdf")) {
-      const { PDFParse } = await import("pdf-parse");
-      const parser = new PDFParse({ data: buffer });
-      const result = await parser.getText();
-      await parser.destroy();
+      // Import the lib directly, not the package root — the root index.js has a
+      // debug-mode code path that tries to read a bundled test PDF in some module
+      // resolution setups, which fails in production. The lib export has no such issue.
+      const pdfParseModule = await import("pdf-parse/lib/pdf-parse.js");
+      const pdfParse = pdfParseModule.default || pdfParseModule;
+      const result = await pdfParse(buffer);
       text = result.text;
     } else if (name.endsWith(".docx")) {
       const result = await mammoth.extractRawText({ buffer });
@@ -48,7 +50,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text });
   } catch (err) {
     console.error("Resume parse error:", err);
-    const detail = err instanceof Error ? `${err.name}: ${err.message}` : String(err);
-    return NextResponse.json({ error: "Failed to parse this file. Try a different format.", detail }, { status: 500 });
+    return NextResponse.json({ error: "Failed to parse this file. Try a different format." }, { status: 500 });
   }
 }

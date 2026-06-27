@@ -33,7 +33,7 @@ export default function RoleMatchWidget() {
     try {
       const res = await fetch("/api/resume/parse", { method: "POST", body: formData });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail ? `${data.error} (${data.detail})` : (data.error || "Failed to parse file"));
+      if (!res.ok) throw new Error(data.error || "Failed to parse file");
       setText(data.text);
     } catch (err) {
       setParseError(err instanceof Error ? err.message : "Failed to parse file");

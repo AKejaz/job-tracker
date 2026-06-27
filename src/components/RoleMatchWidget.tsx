@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Upload, FileText } from "lucide-react";
 
 type RoleMatch = { title: string; reasoning: string };
 type CompanyMatch = { name: string; why: string };
@@ -18,6 +19,28 @@ export default function RoleMatchWidget() {
   const [matches, setMatches] = useState<RoleMatch[] | null>(null);
   const [companies, setCompanies] = useState<CompanyMatch[] | null>(null);
   const [loading, setLoading] = useState(false);
+  const [parsing, setParsing] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(file: File) {
+    setParsing(true);
+    setParseError(null);
+    setFileName(file.name);
+    const formData = new FormData();
+    formData.append("file", file);
+    try {
+      const res = await fetch("/api/resume/parse", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to parse file");
+      setText(data.text);
+    } catch (err) {
+      setParseError(err instanceof Error ? err.message : "Failed to parse file");
+      setFileName(null);
+    }
+    setParsing(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,7 +63,7 @@ export default function RoleMatchWidget() {
         CV → role &amp; company matches
       </h2>
       <p className="mt-1 text-xs" style={{ color: "var(--text-low)" }}>
-        Paste your CV text, pick a target location, get realistic role titles and companies to target.
+        Upload your CV (PDF/DOCX) or paste text, pick a target location, get realistic role titles and companies to target.
       </p>
 
       <form onSubmit={handleSubmit} className="mt-3 space-y-3">
@@ -61,12 +84,52 @@ export default function RoleMatchWidget() {
             style={{ borderColor: "var(--line)", background: "var(--app-bg)", color: "var(--text-high)" }}
           />
         </div>
+        <div
+          onClick={() => fileInputRef.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            const file = e.dataTransfer.files?.[0];
+            if (file) handleFile(file);
+          }}
+          className="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-5 text-center"
+          style={{ borderColor: "var(--line)", background: "var(--app-bg)" }}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,.docx,.txt"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+          />
+          {parsing ? (
+            <p className="text-sm" style={{ color: "var(--text-low)" }}>Parsing {fileName}…</p>
+          ) : fileName ? (
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-high)" }}>
+              <FileText className="h-4 w-4" style={{ color: "var(--green)" }} />
+              {fileName} parsed — review below, then submit
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-low)" }}>
+              <Upload className="h-4 w-4" />
+              Drop your CV here, or click to upload (PDF, DOCX, or TXT)
+            </div>
+          )}
+        </div>
+        {parseError && (
+          <p className="rounded px-2 py-1.5 text-xs" style={{ background: "var(--red-bg)", color: "var(--red)" }}>
+            {parseError}
+          </p>
+        )}
         <textarea
           required
           value={text}
           onChange={(e) => setText(e.target.value)}
           rows={6}
-          placeholder="Paste resume text here…"
+          placeholder="…or paste resume text here"
           className="w-full rounded-md border px-3 py-2 text-sm"
           style={{ borderColor: "var(--line)", background: "var(--app-bg)", color: "var(--text-high)" }}
         />

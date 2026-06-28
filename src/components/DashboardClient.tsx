@@ -10,6 +10,7 @@ import RecentActivity from "@/components/RecentActivity";
 import { TrendChart, MediumBreakdownChart } from "@/components/Charts";
 import AnalyticsView from "@/components/AnalyticsView";
 import TrendsView from "@/components/TrendsView";
+import ResumeView from "@/components/ResumeView";
 import EditApplicationModal from "@/components/EditApplicationModal";
 import ChatWidget from "@/components/ChatWidget";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -133,11 +134,12 @@ export default function DashboardClient() {
           <>
             <div className="flex justify-end gap-2">
               <ThemeToggle />
-              <RangeToggle range={range} onChange={setRange} />
+              {view !== "resume" && <RangeToggle range={range} onChange={setRange} />}
             </div>
             <div className="mt-4">
               {view === "analytics" && <AnalyticsView apps={apps} />}
               {view === "trends" && <TrendsView apps={apps} />}
+              {view === "resume" && <ResumeView />}
               {view === "extension" && (
                 <div>
                   <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>Extension</h1>

@@ -2,7 +2,7 @@
 
 import GoalWidget from "@/components/GoalWidget";
 
-export type View = "dashboard" | "analytics" | "trends" | "extension";
+export type View = "dashboard" | "analytics" | "trends" | "resume" | "extension";
 
 type Application = { applied_at: string };
 
@@ -38,6 +38,7 @@ export default function Sidebar({
           <div>
             <p className="px-2 text-[10px] font-semibold uppercase tracking-wider text-slate-500">Tools</p>
             <div className="mt-2 space-y-0.5">
+              <NavItem label="Resume" active={view === "resume"} onClick={() => onChange("resume")} />
               <NavItem label="Extension" active={view === "extension"} onClick={() => onChange("extension")} />
             </div>
           </div>

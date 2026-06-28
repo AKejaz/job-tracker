@@ -42,6 +42,34 @@ Rules:
 - Keep each suggested bullet roughly the same length as the original — resumes are space-constrained, this is a tailoring pass, not a rewrite.
 - Aim for 4 to 10 total diffs depending on how much of the CV is genuinely relevant to improve. Never return more than 12.`;
 
+/**
+ * Finds `needle` inside `haystack` even if whitespace differs (extra/missing spaces,
+ * different line breaks — common after PDF/DOCX text extraction, and something an LLM
+ * echoing text back will often normalize slightly). Returns the ACTUAL matching
+ * substring from `haystack` so later exact-string replacement still works, or null
+ * if no reasonable match is found.
+ */
+function findFlexibleMatch(haystack: string, needle: string): string | null {
+  const trimmedNeedle = needle.trim();
+  if (!trimmedNeedle) return null;
+
+  // Fast path: exact match.
+  if (haystack.includes(trimmedNeedle)) return trimmedNeedle;
+
+  // Build a regex from the needle that tolerates any amount of whitespace
+  // (including newlines) wherever the needle itself has whitespace.
+  const escaped = trimmedNeedle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const flexiblePattern = escaped.replace(/\s+/g, "\\s+");
+
+  try {
+    const regex = new RegExp(flexiblePattern);
+    const match = haystack.match(regex);
+    return match ? match[0] : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -90,9 +118,27 @@ Rewrite the most relevant bullet points from the CV to align with the job descri
   try {
     const result = await groqJSON<GroqDiffResponse>(SYSTEM_PROMPT, userPrompt);
 
-    const diffs: DiffItem[] = (result.diffs ?? [])
-      .filter((d) => d.original_bullet && d.suggested_bullet && cvText.includes(d.original_bullet))
-      .map((d, i) => ({ id: `diff-${i}`, ...d }));
+    const rawDiffs = result.diffs ?? [];
+    const diffs: DiffItem[] = [];
+
+    for (let i = 0; i < rawDiffs.length; i++) {
+      const d = rawDiffs[i];
+      if (!d.original_bullet || !d.suggested_bullet) continue;
+
+      const matchedSubstring = findFlexibleMatch(cvText, d.original_bullet);
+      if (!matchedSubstring) continue;
+
+      // Use the ACTUAL text found in the CV (not Groq's possibly-reformatted echo of it)
+      // so the front-end's exact-string replace works reliably later.
+      diffs.push({
+        id: `diff-${diffs.length}`,
+        section: d.section,
+        original_bullet: matchedSubstring,
+        suggested_bullet: d.suggested_bullet,
+      });
+    }
+
+    console.log(`CV tailor: Groq returned ${rawDiffs.length} diffs, ${diffs.length} matched against the CV text.`);
 
     return NextResponse.json({ diffs, hadCompanyContext: Boolean(companyContext) });
   } catch (err) {

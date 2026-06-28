@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Briefcase, MessageSquare, Users, Award, XCircle, Search, Bell, Pencil } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import RoleMatchWidget from "@/components/RoleMatchWidget";
-import Sidebar, { View } from "@/components/Sidebar";
+import Sidebar, { View, ResumeService } from "@/components/Sidebar";
 import PipelineFunnel from "@/components/PipelineFunnel";
 import RecentActivity from "@/components/RecentActivity";
 import { TrendChart, MediumBreakdownChart } from "@/components/Charts";
@@ -47,6 +47,7 @@ export default function DashboardClient() {
   const [userEmail, setUserEmail] = useState<string | undefined>(undefined);
   const [search, setSearch] = useState("");
   const [view, setView] = useState<View>("dashboard");
+  const [resumeService, setResumeService] = useState<ResumeService>("cv_analyzer");
   const [editing, setEditing] = useState<Application | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
@@ -127,7 +128,14 @@ export default function DashboardClient() {
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
-      <Sidebar userEmail={userEmail} view={view} onChange={setView} apps={apps} />
+      <Sidebar
+        userEmail={userEmail}
+        view={view}
+        onChange={setView}
+        apps={apps}
+        resumeService={resumeService}
+        onResumeServiceChange={setResumeService}
+      />
 
       <main className="flex-1 px-6 py-6 lg:px-8">
         {view !== "dashboard" ? (
@@ -139,7 +147,7 @@ export default function DashboardClient() {
             <div className="mt-4">
               {view === "analytics" && <AnalyticsView apps={apps} />}
               {view === "trends" && <TrendsView apps={apps} />}
-              {view === "resume" && <ResumeView />}
+              {view === "resume" && <ResumeView service={resumeService} />}
               {view === "extension" && (
                 <div>
                   <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>Extension</h1>
@@ -347,7 +355,6 @@ function ApplicationsTable({ apps, onEdit }: { apps: Application[]; onEdit: (a: 
 function PaginationFooter({ page, totalPages, onChange }: { page: number; totalPages: number; onChange: (p: number) => void }) {
   if (totalPages <= 1) return null;
 
-  // Show up to 5 page numbers centered around current page, with first/last always visible.
   const pages = new Set<number>([1, totalPages, page, page - 1, page + 1].filter((p) => p >= 1 && p <= totalPages));
   const sorted = Array.from(pages).sort((a, b) => a - b);
 

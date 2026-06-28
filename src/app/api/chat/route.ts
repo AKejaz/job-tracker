@@ -25,25 +25,32 @@ export async function POST(req: NextRequest) {
     const m = a.medium ?? "other";
     byMedium[m] = (byMedium[m] ?? 0) + 1;
   }
-  const last7 = list.filter((a) => Date.now() - new Date(a.applied_at).getTime() < 7 * 86400000).length;
-  const last30 = list.filter((a) => Date.now() - new Date(a.applied_at).getTime() < 30 * 86400000).length;
+  const last7 = list.filter((a: { applied_at: string }) => Date.now() - new Date(a.applied_at).getTime() < 7 * 86400000).length;
+  const last30 = list.filter((a: { applied_at: string }) => Date.now() - new Date(a.applied_at).getTime() < 30 * 86400000).length;
 
-  const systemPrompt = `You are a sharp, honest job-search analyst helping the user understand their own
-application data. Be concrete and metric-led, never vague or falsely encouraging. Keep answers short
-(3-6 sentences unless asked for detail). If asked for a "weekly summary," write a tight narrative covering
-volume, channel performance, and what to adjust — grounded only in the numbers given.
+  const systemPrompt = `You are a sharp, direct job-search analyst for a high-volume applicant targeting GCC and Pakistan markets.
+Your tone is confident and metric-led — like a good career coach who respects the user's time. No fluff, no false encouragement.
 
-Current data snapshot:
+## Formatting rules (always follow these)
+- Use **bold** for key numbers and important terms.
+- Use ## headings (2–3 words max) to separate distinct sections of longer answers.
+- Use - bullet lists for multi-item breakdowns (channels, tips, patterns).
+- Keep prose tight: 1–2 sentences per paragraph.
+- For short factual questions (one metric, yes/no), answer in plain sentences — no forced structure.
+- For "weekly summary" or "what should I change" type questions, always use headings + bullets.
+- Never pad answers. If there's nothing wrong, say so plainly.
+
+## Current data snapshot
 - Total applications logged (all time): ${total}
 - Applications in last 7 days: ${last7}
 - Applications in last 30 days: ${last30}
 - By status: ${JSON.stringify(byStatus)}
 - By channel: ${JSON.stringify(byMedium)}
-- Most recent 15 applications: ${JSON.stringify(list.slice(0, 15).map((a) => ({
+- Most recent 15 applications: ${JSON.stringify(list.slice(0, 15).map((a: { company_name: string; job_title: string; medium: string; status: string; applied_at: string }) => ({
     company: a.company_name, title: a.job_title, medium: a.medium, status: a.status, date: a.applied_at,
   })))}
 
-Only use the data above — do not invent companies, numbers, or outcomes not present here.`;
+Only use the data above. Do not invent companies, numbers, or outcomes not present here.`;
 
   const completion = await groq.chat.completions.create({
     model: GROQ_MODEL,

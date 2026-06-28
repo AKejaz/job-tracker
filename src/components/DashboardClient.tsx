@@ -15,6 +15,7 @@ import EditApplicationModal from "@/components/EditApplicationModal";
 import ChatWidget from "@/components/ChatWidget";
 import ThemeToggle from "@/components/ThemeToggle";
 import ExtensionSetup from "@/components/ExtensionSetup";
+import InterviewIntelView from "@/components/InterviewIntelView";
 
 type Application = {
   id: string;
@@ -126,6 +127,10 @@ export default function DashboardClient() {
   const rejections = filtered.filter((a) => a.status === "rejected").length;
   const responseRate = total > 0 ? Math.round((interviewed / total) * 100) : 0;
 
+  // Views that don't use the date range toggle
+  const hideRangeToggle =
+    view === "resume" || view === "extension" || view === "interview_intel";
+
   return (
     <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
       <Sidebar
@@ -142,12 +147,13 @@ export default function DashboardClient() {
           <>
             <div className="flex justify-end gap-2">
               <ThemeToggle />
-              {view !== "resume" && <RangeToggle range={range} onChange={setRange} />}
+              {!hideRangeToggle && <RangeToggle range={range} onChange={setRange} />}
             </div>
             <div className="mt-4">
               {view === "analytics" && <AnalyticsView apps={apps} />}
               {view === "trends" && <TrendsView apps={apps} />}
               {view === "resume" && <ResumeView service={resumeService} />}
+              {view === "interview_intel" && <InterviewIntelView />}
               {view === "extension" && (
                 <div>
                   <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>Extension</h1>

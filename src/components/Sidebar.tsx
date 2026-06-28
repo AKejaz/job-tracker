@@ -5,10 +5,11 @@ import { ChevronDown } from "lucide-react";
 import GoalWidget from "@/components/GoalWidget";
 
 export type View = "dashboard" | "analytics" | "trends" | "resume" | "extension";
-export type ResumeService = "cv_analyzer";
+export type ResumeService = "cv_analyzer" | "cv_tailor";
 
 export const RESUME_SERVICES: { value: ResumeService; label: string }[] = [
   { value: "cv_analyzer", label: "CV Analyzer" },
+  { value: "cv_tailor", label: "Format CV for Role" },
   // Add future services here — they'll appear automatically in the sidebar sub-nav.
 ];
 

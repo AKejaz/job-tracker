@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import GoalWidget from "@/components/GoalWidget";
 
@@ -28,11 +29,21 @@ export default function Sidebar({
   resumeService: ResumeService;
   onResumeServiceChange: (s: ResumeService) => void;
 }) {
-  const resumeOpen = view === "resume";
+  const [resumeExpanded, setResumeExpanded] = useState(view === "resume");
+
+  function handleResumeParentClick() {
+    if (resumeExpanded) {
+      setResumeExpanded(false);
+    } else {
+      setResumeExpanded(true);
+      onChange("resume");
+    }
+  }
 
   function handleResumeServiceClick(service: ResumeService) {
     onChange("resume");
     onResumeServiceChange(service);
+    setResumeExpanded(true);
   }
 
   return (
@@ -74,10 +85,10 @@ export default function Sidebar({
 
               {/* Resume — expandable parent */}
               <button
-                onClick={() => handleResumeServiceClick(resumeService)}
+                onClick={handleResumeParentClick}
                 className="flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left text-sm font-medium transition-colors"
                 style={
-                  resumeOpen
+                  resumeExpanded
                     ? { background: "var(--sidebar-bg-active)", color: "white" }
                     : { color: "#9aa4bf" }
                 }
@@ -85,12 +96,12 @@ export default function Sidebar({
                 <span>Resume</span>
                 <ChevronDown
                   className="h-3.5 w-3.5 shrink-0 transition-transform"
-                  style={{ transform: resumeOpen ? "rotate(0deg)" : "rotate(-90deg)" }}
+                  style={{ transform: resumeExpanded ? "rotate(0deg)" : "rotate(-90deg)" }}
                 />
               </button>
 
-              {/* Sub-nav — only visible when Resume is active */}
-              {resumeOpen && (
+              {/* Sub-nav — only visible when expanded */}
+              {resumeExpanded && (
                 <div className="ml-3 space-y-0.5 border-l pl-2.5" style={{ borderColor: "var(--sidebar-bg-active)" }}>
                   {RESUME_SERVICES.map((s) => (
                     <button

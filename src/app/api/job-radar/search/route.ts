@@ -67,7 +67,6 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
 
   const params = new URLSearchParams({
     query,
-    page: "1",
     num_pages: "1",
   });
   if (remoteOnly) params.set("remote_jobs_only", "true");
@@ -76,7 +75,7 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
   const timeout = setTimeout(() => controller.abort(), 7000);
 
   try {
-    const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params.toString()}`, {
+    const res = await fetch(`https://jsearch.p.rapidapi.com/search-v2?${params.toString()}`, {
       method: "GET",
       headers: {
         "x-rapidapi-host": "jsearch.p.rapidapi.com",
@@ -90,7 +89,7 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
     }
 
     const json = await res.json();
-    const data: JSearchJob[] = json?.data ?? [];
+    const data: JSearchJob[] = json?.data?.jobs ?? json?.data ?? [];
     return data.slice(0, 12);
   } finally {
     clearTimeout(timeout);

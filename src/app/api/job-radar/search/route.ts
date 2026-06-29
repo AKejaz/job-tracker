@@ -87,7 +87,13 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
   const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
-    const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params.toString()}`, {
+    // NOTE: the endpoint is /search-v2, not /search. Confirmed via RapidAPI's own
+    // "Test Endpoint" code snippet for this exact account/key — the old /search
+    // path returns a hard 404 even with a valid, subscribed key (it's not a quota
+    // or auth issue, the route itself moved). /search-v2 also nests results one
+    // level deeper (`data.jobs`, with a `cursor` for pagination) instead of
+    // returning a bare array at `data` — handled below.
+    const res = await fetch(`https://jsearch.p.rapidapi.com/search-v2?${params.toString()}`, {
       method: "GET",
       headers: {
         "x-rapidapi-host": "jsearch.p.rapidapi.com",
@@ -101,7 +107,7 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
     }
 
     const json = await res.json();
-    const data: JSearchJob[] = json?.data ?? [];
+    const data: JSearchJob[] = json?.data?.jobs ?? [];
     return data.slice(0, 12);
   } finally {
     clearTimeout(timeout);

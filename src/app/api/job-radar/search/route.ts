@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { groq, GROQ_MODEL } from "@/lib/groq";
 
 // Hobby plan caps real execution around 10s regardless of this value, but we set it
-// in case the project ever moves to Pro — costs nothing on Hobby.
+// in case the project ever moves to Pro — costs nothing on Hobby. This route now
+// does JSearch ONLY (no Groq), so it has the full ~10s window to itself instead of
+// sharing it with the fit-analysis call — see /api/job-radar/analyze/route.ts and
+// PROJECT_CONTEXT #16 for the reliability fix this is part of.
 export const maxDuration = 30;
 
 type JobType = "on_site" | "hybrid" | "remote";
@@ -13,6 +15,9 @@ type RadarRequestBody = {
   degree: string;
   jobType: JobType;
   country?: string;
+  // No longer read in this route — kept in the type for request-shape parity with
+  // the frontend, which still sends it here. Fit analysis now happens in a separate
+  // call to /api/job-radar/analyze, which receives cvText directly from the client.
   cvText?: string;
 };
 
@@ -39,10 +44,6 @@ export type RadarJob = {
   applyLink: string;
   whyFit: string;
   starRating: number;
-};
-
-type GroqAnalysis = {
-  jobs: { index: number; why_fit: string; star_rating: number }[];
 };
 
 const VALID_JOB_TYPES: JobType[] = ["on_site", "hybrid", "remote"];
@@ -78,9 +79,12 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
   if (remoteOnly) params.set("remote_jobs_only", "true");
 
   const controller = new AbortController();
-  // Reduced from 7000ms to 5000ms — leaves ~5s for the Groq call that follows,
-  // which is necessary to stay under Vercel Hobby's hard ~10s execution cap.
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  // Bumped back up from 5000ms to 8000ms. The 5s cap existed only to leave room for
+  // the Groq fit-analysis call that used to run in this same function — now that
+  // Groq lives in its own route (/api/job-radar/analyze), JSearch can use nearly the
+  // full ~10s Vercel Hobby budget by itself, which is the actual fix for the
+  // 504/empty-result/inconsistent-star-rating symptoms.
+  const timeout = setTimeout(() => controller.abort(), 8000);
 
   try {
     const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params.toString()}`, {
@@ -104,65 +108,6 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
   }
 }
 
-const ANALYSIS_SYSTEM_PROMPT = `You are a sharp, honest career-fit analyst. You will be given a numbered list of live job postings and (optionally) a candidate's CV text. For EVERY job in the list, you must return exactly one analysis object.
-
-Respond ONLY with a JSON object in this exact shape, and nothing else (no markdown, no preamble):
-{
-  "jobs": [
-    { "index": number, "why_fit": "string — one punchy sentence", "star_rating": number }
-  ]
-}
-
-Rules:
-- "index" must match the 0-based index of the job in the list provided — this is how your answer gets matched back, so never skip or reorder jobs.
-- "why_fit" is ONE sentence, punchy and specific, explaining why this particular job is or isn't a good match. Reference something concrete from the job (title, seniority, skills implied) — avoid generic filler.
-- "star_rating" is an integer 1-5 estimating the candidate's interview odds for that role (5 = excellent match, 1 = weak match).
-- If no CV text was provided, base your rating on general role clarity and seniority signals only, keep "why_fit" honest about the lack of CV context (e.g. note what kind of background would fit), and avoid claiming a personalized match you can't support.
-- Be accurate and consistent — do not inflate ratings to be encouraging. A genuinely weak fit should score 1-2.
-- Never fabricate candidate experience not present in the CV text.`;
-
-async function analyzeFit(jobs: JSearchJob[], cvText: string): Promise<GroqAnalysis> {
-  const listing = jobs
-    .map((j, i) => {
-      // 300 chars (down from 500) — enough context for fit analysis, keeps
-      // the prompt shorter so Groq finishes within the remaining time budget.
-      const desc = (j.job_description ?? "").slice(0, 300);
-      return `[${i}] Title: ${j.job_title ?? "Unknown"} | Company: ${j.employer_name ?? "Unknown"} | Location: ${locationLabel(j)} | Type: ${j.job_employment_type ?? "Unknown"}\nDescription excerpt: ${desc}`;
-    })
-    .join("\n\n");
-
-  const userPrompt = `CANDIDATE CV TEXT (may be empty):
-"""
-${cvText ? cvText.slice(0, 6000) : "(none provided)"}
-"""
-
-JOB LISTINGS:
-${listing}
-
-Analyze every listing above and return the JSON object described in your system prompt.`;
-
-  const completion = await groq.chat.completions.create({
-    model: GROQ_MODEL,
-    temperature: 0,
-    // max_tokens cap prevents runaway generation and ensures the JSON is never
-    // truncated mid-object — truncation was causing JSON.parse to throw, falling
-    // back to starRating: 3 and causing the "different stars each time" symptom.
-    max_tokens: 1500,
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: ANALYSIS_SYSTEM_PROMPT },
-      { role: "user", content: userPrompt },
-    ],
-  });
-
-  const raw = completion.choices[0]?.message?.content ?? "{}";
-  try {
-    return JSON.parse(raw) as GroqAnalysis;
-  } catch {
-    return { jobs: [] };
-  }
-}
-
 export async function POST(req: NextRequest) {
   const supabase = await createClient();
   const {
@@ -181,7 +126,6 @@ export async function POST(req: NextRequest) {
   const degree = body.degree?.trim() ?? "";
   const jobType = body.jobType;
   const country = body.country?.trim() ?? "";
-  const cvText = body.cvText?.trim() ?? "";
 
   if (!city || !degree || !jobType || !VALID_JOB_TYPES.includes(jobType)) {
     return NextResponse.json(
@@ -195,27 +139,28 @@ export async function POST(req: NextRequest) {
     const rawJobs = await fetchJSearchResults(query, jobType === "remote");
 
     if (rawJobs.length === 0) {
-      return NextResponse.json({ jobs: [] });
+      return NextResponse.json({ jobs: [], rawJobs: [] });
     }
 
-    const analysis = await analyzeFit(rawJobs, cvText);
-    const byIndex = new Map(analysis.jobs.map((a) => [a.index, a]));
+    // No Groq call here anymore — fit analysis happens in a follow-up request to
+    // /api/job-radar/analyze, kicked off by the frontend right after this response
+    // comes back. whyFit/starRating start as placeholders ("" / 0) and the
+    // JobRadarView UI renders a loading indicator for rows in that state.
+    const jobs: RadarJob[] = rawJobs.map((j) => ({
+      id: j.job_id,
+      company: j.employer_name ?? "Unknown company",
+      title: j.job_title ?? "Unknown role",
+      location: locationLabel(j),
+      isRemote: Boolean(j.job_is_remote),
+      applyLink: j.job_apply_link ?? "",
+      whyFit: "",
+      starRating: 0,
+    }));
 
-    const jobs: RadarJob[] = rawJobs.map((j, i) => {
-      const a = byIndex.get(i);
-      return {
-        id: j.job_id,
-        company: j.employer_name ?? "Unknown company",
-        title: j.job_title ?? "Unknown role",
-        location: locationLabel(j),
-        isRemote: Boolean(j.job_is_remote),
-        applyLink: j.job_apply_link ?? "",
-        whyFit: a?.why_fit ?? "Add your CV for a personalized fit analysis.",
-        starRating: a && a.star_rating >= 1 && a.star_rating <= 5 ? Math.round(a.star_rating) : 3,
-      };
-    });
-
-    return NextResponse.json({ jobs });
+    // rawJobs is returned alongside the display-ready jobs so the frontend can
+    // forward it verbatim to /api/job-radar/analyze — the client has no other copy
+    // of JSearch's raw fields (job_description, etc.) needed for fit scoring.
+    return NextResponse.json({ jobs, rawJobs });
   } catch (err) {
     console.error("Job Radar search error:", err);
     return NextResponse.json(

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Star, ExternalLink, Plus, Check, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -14,9 +14,29 @@ type RadarJob = {
   location: string;
   isRemote: boolean;
   applyLink: string;
-  whyFit: string;
-  starRating: number;
+  whyFit: string; // "" = not yet analyzed
+  starRating: number; // 0 = not yet analyzed
 };
+
+// Raw JSearch fields returned by /api/job-radar/search alongside the display-ready
+// `jobs` array. The frontend has no other source for these — it just holds onto
+// them in a ref and forwards them verbatim to /api/job-radar/analyze for fit
+// scoring. Shape must match JSearchJob in both API route files.
+type RawJob = {
+  job_id: string;
+  employer_name: string | null;
+  job_title: string | null;
+  job_apply_link: string | null;
+  job_city: string | null;
+  job_state: string | null;
+  job_country: string | null;
+  job_is_remote: boolean | null;
+  job_employment_type: string | null;
+  job_description: string | null;
+  job_posted_at_datetime_utc: string | null;
+};
+
+type AnalysisResult = { index: number; why_fit: string; star_rating: number };
 
 type TrackState = "idle" | "checking" | "confirming" | "tracking" | "tracked" | "error";
 
@@ -35,6 +55,11 @@ export default function JobRadarView() {
   const [loading, setLoading] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<RadarJob[] | null>(null);
+
+  // Carries the raw JSearch payload from the search response into the follow-up
+  // analyze call. A ref (not state) because it's never rendered — it's just plumbing
+  // between the two requests in handleSearch.
+  const rawJobsRef = useRef<RawJob[]>([]);
 
   const showCountry = true; // Always show — city-only queries are ambiguous (e.g. "Islamabad" without "Pakistan" returns near-zero results from JSearch)
   const canSubmit = city.trim().length > 0 && degree.trim().length > 0 && !loading && !parsing;
@@ -61,10 +86,49 @@ export default function JobRadarView() {
     }
   }
 
+  // Step 2 — runs in the background after search succeeds. Failures here are
+  // intentionally silent: the job listings from Step 1 are already visible and
+  // usable, so a Groq hiccup shouldn't surface as an error to the user. Rows just
+  // keep their "" / 0 placeholders, which JobRow already renders as a loading state.
+  async function analyzeFit(rawJobs: RawJob[], cv: string) {
+    if (rawJobs.length === 0) return;
+
+    try {
+      const res = await fetch("/api/job-radar/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobs: rawJobs, cvText: cv }),
+      });
+      if (!res.ok) return;
+
+      const data = await res.json();
+      const analysis: AnalysisResult[] = data.jobs ?? [];
+      if (analysis.length === 0) return;
+
+      const byIndex = new Map(analysis.map((a) => [a.index, a]));
+      setJobs((prev) => {
+        if (!prev) return prev;
+        return prev.map((job, i) => {
+          const a = byIndex.get(i);
+          if (!a) return job;
+          return {
+            ...job,
+            whyFit: a.why_fit,
+            starRating:
+              a.star_rating >= 1 && a.star_rating <= 5 ? Math.round(a.star_rating) : job.starRating,
+          };
+        });
+      });
+    } catch {
+      // Network error on the analyze call — leave placeholders, no error shown.
+    }
+  }
+
   async function handleSearch() {
     setSearchError(null);
     setLoading(true);
     setJobs(null);
+    rawJobsRef.current = [];
 
     try {
       const res = await fetch("/api/job-radar/search", {
@@ -87,9 +151,17 @@ export default function JobRadarView() {
 
       const incoming: RadarJob[] = data.jobs ?? [];
       setJobs(incoming);
+      rawJobsRef.current = data.rawJobs ?? [];
+
       if (incoming.length === 0) {
         setSearchError("No live listings found for that search — try a broader city or degree term.");
+        return;
       }
+
+      // Step 1 (search) is done — loading cube goes away and the table renders
+      // immediately with placeholder fit data. Step 2 (analyze) runs in the
+      // background; we deliberately don't await it before clearing `loading`.
+      void analyzeFit(rawJobsRef.current, cvText);
     } catch {
       setSearchError("Network error. Please try again.");
     } finally {
@@ -262,7 +334,8 @@ export default function JobRadarView() {
         </button>
       </div>
 
-      {/* Loading state */}
+      {/* Loading state — only for Step 1 (search). Step 2 (analyze) runs after the
+          table is already visible, so it never shows this full-panel loader. */}
       {loading && <LoadingState />}
 
       {/* Results */}
@@ -303,6 +376,9 @@ function ResultsTable({ jobs }: { jobs: RadarJob[] }) {
 function JobRow({ job }: { job: RadarJob }) {
   const [trackState, setTrackState] = useState<TrackState>("idle");
   const [trackError, setTrackError] = useState<string | null>(null);
+
+  // Fit data hasn't arrived from /api/job-radar/analyze yet.
+  const isAnalyzing = job.whyFit === "" && job.starRating === 0;
 
   async function handleTrack() {
     setTrackError(null);
@@ -373,10 +449,18 @@ function JobRow({ job }: { job: RadarJob }) {
         {job.location}
       </td>
       <td className="px-4 py-3 max-w-xs" style={{ color: "var(--text-low)" }}>
-        {job.whyFit}
+        {isAnalyzing ? (
+          <span
+            className="inline-block h-3 w-32 animate-pulse rounded-full"
+            style={{ background: "var(--line)" }}
+            title="Analyzing fit…"
+          />
+        ) : (
+          job.whyFit
+        )}
       </td>
       <td className="px-4 py-3">
-        <StarRating rating={job.starRating} />
+        {isAnalyzing ? <StarRatingLoading /> : <StarRating rating={job.starRating} />}
       </td>
       <td className="px-4 py-3">
         <div className="flex items-center gap-2">
@@ -438,6 +522,22 @@ function StarRating({ rating }: { rating: number }) {
           }}
         />
       ))}
+    </div>
+  );
+}
+
+// Shown in the "Interview Odds" column while a row is waiting on
+// /api/job-radar/analyze — five empty outlines plus a tiny spinner, so it's clearly
+// distinct from a genuine low (e.g. 0/1-star) rating.
+function StarRatingLoading() {
+  return (
+    <div className="flex items-center gap-1.5" title="Analyzing fit…">
+      <div className="flex items-center gap-0.5">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Star key={n} className="h-3.5 w-3.5" style={{ color: "var(--text-faint)" }} />
+        ))}
+      </div>
+      <Loader2 className="h-3 w-3 animate-spin" style={{ color: "var(--text-faint)" }} />
     </div>
   );
 }

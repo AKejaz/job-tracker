@@ -36,7 +36,7 @@ export default function JobRadarView() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [jobs, setJobs] = useState<RadarJob[] | null>(null);
 
-  const showCountry = jobType === "remote" || jobType === "hybrid";
+  const showCountry = true; // Always show — city-only queries are ambiguous (e.g. "Islamabad" without "Pakistan" returns near-zero results from JSearch)
   const canSubmit = city.trim().length > 0 && degree.trim().length > 0 && !loading && !parsing;
 
   async function handleFileUpload(file: File) {
@@ -159,7 +159,7 @@ export default function JobRadarView() {
           {showCountry && (
             <div className="col-span-1">
               <label className="text-xs font-semibold" style={{ color: "var(--text-low)" }}>
-                Country <span style={{ color: "var(--text-faint)" }}>(optional)</span>
+                Country <span style={{ color: "var(--text-faint)" }}>(optional, improves results)</span>
               </label>
               <input
                 value={country}

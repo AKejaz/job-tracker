@@ -49,10 +49,15 @@ const VALID_JOB_TYPES: JobType[] = ["on_site", "hybrid", "remote"];
 
 function buildSearchQuery(degree: string, city: string, jobType: JobType, country?: string) {
   const parts = [`${degree} jobs`];
+  // Don't put "on-site" as a text keyword — JSearch's NLP treats it inconsistently
+  // and it can hurt result counts. Remote/hybrid signals are handled via the
+  // remote_jobs_only param and the "hybrid" keyword below.
   if (jobType === "hybrid") parts.push("hybrid");
-  if (jobType === "on_site") parts.push("on-site");
   parts.push(`in ${city}`);
-  if (country && jobType !== "on_site") parts.push(country);
+  // Always include country when provided — critical for cities like Islamabad
+  // that exist in multiple countries. Previously excluded for on_site, which was
+  // the reason searches returned only 1 result (JSearch couldn't resolve the city).
+  if (country) parts.push(country);
   return parts.join(" ");
 }
 
@@ -67,15 +72,18 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
 
   const params = new URLSearchParams({
     query,
+    page: "1",
     num_pages: "1",
   });
   if (remoteOnly) params.set("remote_jobs_only", "true");
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 7000);
+  // Reduced from 7000ms to 5000ms — leaves ~5s for the Groq call that follows,
+  // which is necessary to stay under Vercel Hobby's hard ~10s execution cap.
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const res = await fetch(`https://jsearch.p.rapidapi.com/search-v2?${params.toString()}`, {
+    const res = await fetch(`https://jsearch.p.rapidapi.com/search?${params.toString()}`, {
       method: "GET",
       headers: {
         "x-rapidapi-host": "jsearch.p.rapidapi.com",
@@ -89,7 +97,7 @@ async function fetchJSearchResults(query: string, remoteOnly: boolean): Promise<
     }
 
     const json = await res.json();
-    const data: JSearchJob[] = json?.data?.jobs ?? json?.data ?? [];
+    const data: JSearchJob[] = json?.data ?? [];
     return data.slice(0, 12);
   } finally {
     clearTimeout(timeout);
@@ -116,7 +124,9 @@ Rules:
 async function analyzeFit(jobs: JSearchJob[], cvText: string): Promise<GroqAnalysis> {
   const listing = jobs
     .map((j, i) => {
-      const desc = (j.job_description ?? "").slice(0, 500);
+      // 300 chars (down from 500) — enough context for fit analysis, keeps
+      // the prompt shorter so Groq finishes within the remaining time budget.
+      const desc = (j.job_description ?? "").slice(0, 300);
       return `[${i}] Title: ${j.job_title ?? "Unknown"} | Company: ${j.employer_name ?? "Unknown"} | Location: ${locationLabel(j)} | Type: ${j.job_employment_type ?? "Unknown"}\nDescription excerpt: ${desc}`;
     })
     .join("\n\n");
@@ -134,6 +144,10 @@ Analyze every listing above and return the JSON object described in your system 
   const completion = await groq.chat.completions.create({
     model: GROQ_MODEL,
     temperature: 0,
+    // max_tokens cap prevents runaway generation and ensures the JSON is never
+    // truncated mid-object — truncation was causing JSON.parse to throw, falling
+    // back to starRating: 3 and causing the "different stars each time" symptom.
+    max_tokens: 1500,
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: ANALYSIS_SYSTEM_PROMPT },

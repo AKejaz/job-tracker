@@ -9,6 +9,7 @@ import {
   FileText,
   Puzzle,
   Lightbulb,
+  Radar,
 } from "lucide-react";
 import GoalWidget from "@/components/GoalWidget";
 
@@ -18,7 +19,8 @@ export type View =
   | "trends"
   | "resume"
   | "extension"
-  | "interview_intel";
+  | "interview_intel"
+  | "job_radar";
 
 export type ResumeService = "cv_analyzer" | "cv_tailor";
 
@@ -122,6 +124,14 @@ export default function Sidebar({
               Tools
             </p>
             <div className="mt-2 space-y-0.5">
+
+              {/* Job Radar — top-level item */}
+              <NavItem
+                label="Job Radar"
+                icon={Radar}
+                active={view === "job_radar"}
+                onClick={() => onChange("job_radar")}
+              />
 
               {/* Resume — expandable parent */}
               <button

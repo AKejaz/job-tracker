@@ -16,6 +16,7 @@ import ChatWidget from "@/components/ChatWidget";
 import ThemeToggle from "@/components/ThemeToggle";
 import ExtensionSetup from "@/components/ExtensionSetup";
 import InterviewIntelView from "@/components/InterviewIntelView";
+import JobRadarView from "@/components/JobRadarView";
 
 type Application = {
   id: string;
@@ -129,7 +130,7 @@ export default function DashboardClient() {
 
   // Views that don't use the date range toggle
   const hideRangeToggle =
-    view === "resume" || view === "extension" || view === "interview_intel";
+    view === "resume" || view === "extension" || view === "interview_intel" || view === "job_radar";
 
   return (
     <div className="flex min-h-screen" style={{ background: "var(--app-bg)" }}>
@@ -154,6 +155,7 @@ export default function DashboardClient() {
               {view === "trends" && <TrendsView apps={apps} />}
               {view === "resume" && <ResumeView service={resumeService} />}
               {view === "interview_intel" && <InterviewIntelView />}
+              {view === "job_radar" && <JobRadarView />}
               {view === "extension" && (
                 <div>
                   <h1 className="font-display text-xl font-bold" style={{ color: "var(--text-high)" }}>Extension</h1>
